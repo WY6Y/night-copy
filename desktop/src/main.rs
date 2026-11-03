@@ -1,6 +1,7 @@
-//! Night Copy for Windows: the game's own backend (progress, sessions, static
+//! Night Copy desktop (Windows, macOS): the game's own backend (progress, sessions, static
 //! files) runs inside the app on 127.0.0.1, and a WebView2 window shows it.
-//! Progress lives in %APPDATA%\net.wy6y.nightcopy\nightcopy.db.
+//! Progress lives in the app data folder (%APPDATA%\net.wy6y.nightcopy on
+//! Windows, ~/Library/Application Support/net.wy6y.nightcopy on macOS).
 //!
 //! The port is fixed (first free in 51600..51610) because the page's origin
 //! includes it, and localStorage (offline cache, unsent sessions) is per origin.

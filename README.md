@@ -16,6 +16,19 @@ the end of each chapter.
 It installs for your user only (no admin prompt). Progress is saved in
 `%APPDATA%\net.wy6y.nightcopy\`. Uninstall from Settings > Apps.
 
+## Install (macOS 11 or later, Apple Silicon or Intel)
+
+1. From [Releases](../../releases), download `Night Copy_x.y.z_universal.dmg`,
+   open it, and drag **Night Copy** to Applications.
+2. The app isn't notarized by Apple, so the first launch is blocked. Open it
+   once (it will say it can't be opened), then go to **System Settings >
+   Privacy & Security**, scroll down, and click **Open Anyway** next to
+   Night Copy. After that it opens normally.
+3. A MIDI paddle doesn't work on the Mac build (Apple's web engine has no Web
+   MIDI); keyboard sending works.
+
+Progress is saved in `~/Library/Application Support/net.wy6y.nightcopy/`.
+
 ## Playing
 
 - Headphones help. Start with INTERCEPT: hear a letter, type it.
@@ -37,9 +50,9 @@ It installs for your user only (no admin prompt). Progress is saved in
 
 ## Build
 
-The installer is built by GitHub Actions on Windows: push a tag `vX.Y.Z`
-(matching `version` in `desktop/tauri.conf.json`) and the workflow attaches
-the setup `.exe` to a Release. Locally on Windows:
+The installers are built by GitHub Actions on Windows and macOS: push a tag
+`vX.Y.Z` (matching `version` in `desktop/tauri.conf.json`) and the workflow
+attaches the setup `.exe` and the `.dmg` to a Release. Locally:
 
     cd desktop
     npx @tauri-apps/cli@2 build
