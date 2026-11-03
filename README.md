@@ -16,7 +16,7 @@ the end of each chapter.
 
 ## Install (Windows 10/11)
 
-1. Open [Releases](../../releases) and download `Night Copy_x.y.z_x64-setup.exe`.
+1. Open [Releases](../../releases) and download `Night.Copy_x.y.z_x64-setup.exe`.
 2. Run it. The installer is not code-signed, so Windows may show **"Windows
    protected your PC"**. Click **More info**, then **Run anyway**.
 3. Start **Night Copy** from the Start menu. On first run it asks for your
@@ -27,7 +27,7 @@ It installs for your user only (no admin prompt). Progress is saved in
 
 ## Install (macOS 11 or later, Apple Silicon or Intel)
 
-1. From [Releases](../../releases), download `Night Copy_x.y.z_universal.dmg`,
+1. From [Releases](../../releases), download `Night.Copy_x.y.z_universal.dmg`,
    open it, and drag **Night Copy** to Applications.
 2. The app isn't notarized by Apple, so the first launch is blocked. Open it
    once (it will say it can't be opened), then go to **System Settings >
@@ -41,8 +41,8 @@ Progress is saved in `~/Library/Application Support/net.wy6y.nightcopy/`.
 
 From [Releases](../../releases), either:
 
-- `Night Copy_x.y.z_amd64.AppImage`: `chmod +x` it and run it, or
-- `Night Copy_x.y.z_amd64.deb` (Debian, Ubuntu, Mint): `sudo apt install ./Night*.deb`.
+- `Night.Copy_x.y.z_amd64.AppImage`: `chmod +x` it and run it, or
+- `Night.Copy_x.y.z_amd64.deb` (Debian, Ubuntu, Mint): `sudo apt install ./Night*.deb`.
 
 Progress is saved in `~/.local/share/net.wy6y.nightcopy/`.
 
