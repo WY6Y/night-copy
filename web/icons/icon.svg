@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0" stop-color="#1a1640"/><stop offset="1" stop-color="#05040d"/>
+    </radialGradient>
+    <radialGradient id="beacon" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fff2f2"/><stop offset=".35" stop-color="#ff3b4a"/><stop offset="1" stop-color="#ff3b4a" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <g stroke="#2a2850" stroke-width="2">
+    <path d="M0 400h512M0 424h512M0 448h512M0 472h512"/>
+  </g>
+  <!-- Relay tower -->
+  <g fill="none" stroke="#4de8ff" stroke-width="10" stroke-linejoin="round" filter="url(#glow)">
+    <path d="M256 118 L196 404 M256 118 L316 404"/>
+    <path d="M226 260 L286 260 M212 330 L300 330 M240 190 L272 190"/>
+    <path d="M240 190 L286 260 L212 330 M272 190 L226 260 L300 330"/>
+  </g>
+  <circle cx="256" cy="112" r="64" fill="url(#beacon)"/>
+  <circle cx="256" cy="112" r="16" fill="#ffe0e0"/>
+  <!-- K in CW: dah dit dah, keyed square wave -->
+  <path d="M40 300 H96 V244 H200 V300 H226 V244 H262 V300 H288 V244 H392 V300 H472"
+        fill="none" stroke="#3cff9a" stroke-width="16" stroke-linejoin="round" filter="url(#glow)"/>
+</svg>
