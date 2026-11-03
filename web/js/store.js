@@ -137,7 +137,7 @@ export class Store {
       this.syncMsg = '';
     } catch (e) {
       this.sync = 'error';
-      this.syncMsg = `PROGRESS NOT SAVED to the Pi (${e.message}). Kept in this browser; retrying.`;
+      this.syncMsg = `PROGRESS NOT SAVED to ${BUILD.desktop ? 'disk' : 'the Pi'} (${e.message}). Kept in this browser; retrying.`;
       clearTimeout(this.saveTimer);
       this.saveTimer = setTimeout(() => this.push(), 15000);
     }
@@ -163,7 +163,7 @@ export class Store {
         localStorage.setItem(QUEUE, JSON.stringify(q));
       } catch {
         this.sync = 'error';
-        this.syncMsg = `${q.length} session(s) waiting to reach the Pi`;
+        this.syncMsg = `${q.length} session(s) waiting to be saved`;
         return;
       }
     }

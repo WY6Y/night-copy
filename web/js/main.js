@@ -1,6 +1,7 @@
 // CyberCW: NIGHT COPY. Game shell: boot, scene manager, input, UI widgets,
 // and the status strip (paddle, TX guard, sync) that every scene shows.
 
+import { BUILD } from './build.js';
 import { Gfx, Particles, Rain, C, FONT, loadImage } from './gfx.js';
 import { Core } from './core.js';
 import { Audio } from './audio.js';
@@ -245,7 +246,8 @@ class Game {
     if (this.awake && ac && ac.state !== 'running') lamp(`SOUND ${ac.state.toUpperCase()}: TAP TO RESUME`, C.red, true);
     const s = this.store.sync;
     const sc = { ok: C.green, saving: C.cyan, loading: C.cyan, offline: C.amber, error: C.red }[s];
-    lamp(s === 'ok' ? 'PI SYNC: OK' : s === 'saving' ? 'PI SYNC: SAVING' : s === 'offline' ? 'PI SYNC: OFFLINE' : s === 'loading' ? 'PI SYNC' : 'PROGRESS NOT SAVED', sc, s === 'error');
+    const sync = BUILD.desktop ? 'SAVE' : 'PI SYNC';
+    lamp(s === 'ok' ? `${sync}: OK` : s === 'saving' ? `${sync}: SAVING` : s === 'offline' ? `${sync}: OFFLINE` : s === 'loading' ? sync : 'PROGRESS NOT SAVED', sc, s === 'error');
     if (!g.portrait) g.text('CYBERCW // NIGHT COPY', g.W - 14, y, { size: 14, font: FONT.ui, color: C.greenDim, align: 'right', glow: 0 });
     // Toasts
     let ty = g.H - 60;
