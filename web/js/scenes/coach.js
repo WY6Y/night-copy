@@ -20,6 +20,7 @@ const EL = { '.': 'DIT', '-': 'DAH' };
  */
 export function sendFault(want, got) {
   const a = MORSE[want] || '', b = MORSE[got] || '';
+  if (got === '*') return { kind: 'other', text: 'NOT READABLE' };
   if (!a || !b) return { kind: 'other', text: 'DIFFERENT SHAPE' };
   const where = (i, n) => (i === 0 ? 'AT THE START' : i === n ? 'AT THE END' : 'IN THE MIDDLE');
   for (const [long, short, kind] of [[b, a, 'extra'], [a, b, 'missing']]) {

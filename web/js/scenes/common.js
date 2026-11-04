@@ -95,6 +95,7 @@ export function meter(g, x, y, w, h, frac, color, label) {
 
 /** Draw a letter's pattern as glowing dits and dahs, centered at (cx, cy). */
 export function drawPattern(g, pattern, cx, cy, unit = 18, color = C.cyan, alpha = 1) {
+  if (!pattern) return; // '*' (unreadable) and other non-Morse marks have no pattern
   const els = pattern.split('');
   const w = els.reduce((s, e) => s + (e === '.' ? unit : unit * 3), 0) + (els.length - 1) * unit;
   let x = cx - w / 2;

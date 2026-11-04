@@ -1,7 +1,7 @@
 // Offline shell for receive practice. App files: network first (so updates
 // land right away), cache as fallback. Art and audio: cache first.
 // The API is never cached: guard verdicts and progress must be live.
-const CACHE = 'cybercw-v6';
+const CACHE = 'cybercw-v7';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'core.wasm', 'icons/icon.svg', 'icons/icon-192.png',
   'js/main.js', 'js/gfx.js', 'js/core.js', 'js/audio.js', 'js/keyer-worklet.js', 'js/store.js', 'js/build.js', 'js/paddle.js', 'js/content.js',
