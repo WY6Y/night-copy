@@ -3,11 +3,14 @@
 // Two more modes share all of it:
 //   blind: only the character is shown; no demo, no pattern, sent from memory.
 //   echo:  the target is only heard; key back what you heard.
+//   scope: KEYING SCOPE. His keying is traced against the ideal timing, live,
+//          and every try is graded for rhythm (see scope.js).
 
 import { C, FONT } from '../gfx.js';
 import { backdrop, meter, drawPattern } from './common.js';
 import { CW_WORDS, WORDS, MORSE, canSay, rand, sayPattern } from '../content.js';
 import { myCall } from '../store.js';
+import { analyzeFist, drawFist } from './scope.js';
 
 const TRIES = 3;
 const SCOPE_MS = 6000;
@@ -23,6 +26,8 @@ export class Relay {
     this.i = -1;
     this.decoded = '';
     this.marks = [];          // [startMs, endMs|null] on the keyer clock
+    this.attempt = [];        // the marks of the try in progress (scope mode)
+    this.rhythm = [];         // scope mode: rhythm score per try
     this.gaps = [];
     this.results = [];
     this.tries = 0;
@@ -32,6 +37,7 @@ export class Relay {
       relay: 'Authenticate, NightOp. Send your call.',
       blind: 'Faux is on this channel. I can\'t send it in the clear. Send me what you see.',
       echo: 'I send it, you send it back. No paper. Just ears and hands.',
+      scope: 'Bench test. Top trace is how it should go, bottom is your fist. Key it and watch the gaps.',
     }[this.mode];
     this.reveal = null;
     this.state = 'ready';
@@ -60,8 +66,8 @@ export class Relay {
   modeTargets() {
     const store = this.game.store;
     const L = this.letters;
-    // Blind leans on letters he sends badly; echo on letters he hears badly.
-    const weight = (c) => (this.mode === 'blind'
+    // Blind and scope lean on letters he sends badly; echo on letters he hears badly.
+    const weight = (c) => (this.mode !== 'echo'
       ? 1 + 3 * (1 - store.sendAcc(c)) + (store.topSendMix(5).some((m) => m.want === c) ? 2 : 0)
       : 1 + 4 * (1 - (store.p.stats[c]?.acc ?? 0.5)));
     const pick = (last) => {
@@ -120,7 +126,11 @@ export class Relay {
       // A held element isn't silence: keep the decoder from closing the letter.
       this.keyDown = !!d.down;
       this.game.core.decKey(this.keyDown);
-      if (d.down) { this.marks.push([ms, null]); if (this.state === 'send') this.reveal = null; }
+      if (d.down) {
+        const m = [ms, null];
+        this.marks.push(m);
+        if (this.state === 'send') { this.reveal = null; this.attempt.push(m); }
+      }
       else if (this.marks.length && this.marks[this.marks.length - 1][1] == null) this.marks[this.marks.length - 1][1] = ms;
       this.lastActivity = ms;
     }
@@ -132,6 +142,8 @@ export class Relay {
     this.i++;
     this.tries = 0;
     this.decoded = '';
+    this.attempt = [];
+    this.scoped = null;
     this.resetDecoder();
     if (this.i >= this.targets.length) { this.finish(false); return; }
     this.reveal = null;
@@ -140,6 +152,13 @@ export class Relay {
       this.showPattern = false;
       this.state = 'send';
       this.demoAt = null;
+      return;
+    }
+    if (this.mode === 'scope') {
+      if (this.i > 0) this.vera = rand(['Next on the bench.', 'Again. Watch the trace.', 'Smooth and even. Go.', 'Let the keyer do the timing. You do the gaps.']);
+      this.showPattern = false;
+      this.state = 'send';
+      this.demoAt = 0.7;
       return;
     }
     if (this.mode === 'echo') {
@@ -184,7 +203,7 @@ export class Relay {
       this.tries++;
       game.audio.sfx('bad');
       g.glitch(0.6);
-      if (this.mode !== 'relay') this.reveal = { want, got };
+      if (this.mode !== 'relay' && this.mode !== 'scope') this.reveal = { want, got };
       if (this.tries >= this.maxTries) {
         this.results.push({ target: this.target, ok: false, tries: this.tries });
         this.vera = this.mode === 'relay' ? `I kept getting ${got || 'nothing'}. Listen to how ${this.target} should sound.`
@@ -192,6 +211,8 @@ export class Relay {
         this.compare(want, got);
         this.state = this.mode === 'relay' ? 'good' : 'review';
         this.wait = 2.6;
+      } else if (this.mode === 'scope') {
+        this.vera = `I copied ${got || 'nothing'}. Read the trace, then try it again.`;
       } else if (this.mode === 'blind') {
         // One more try, still blind. The comparison stays up until he keys.
         this.vera = `I copied ${got || 'nothing'}. Not it. One more, from memory.`;
@@ -211,6 +232,30 @@ export class Relay {
         this.demoAt = 0.9;
       }
     }
+    if (this.mode === 'scope') this.scopeTry(want, got, ok);
+  }
+
+  /** Scope mode: freeze the try on the bench with its rhythm grade. */
+  scopeTry(want, got, ok) {
+    const u = 1200 / this.game.store.p.settings.keyerWpm;
+    const marks = this.attempt.map(([a, b]) => [a, b ?? a]);
+    const a = analyzeFist(want, marks, u);
+    this.rhythm.push(a.score);
+    this.scoped = { want, got, ok, marks, a, u, done: ok || this.tries >= this.maxTries };
+    if (ok) this.vera = a.score >= 0.85 ? rand(['Clean fist. Textbook.', 'That trace is a thing of beauty.', 'Even as a metronome.']) : `Vera copied it, but look: ${a.issues[0] || 'the gaps wander'}.`;
+    this.state = 'scoped';
+  }
+
+  /** Off the bench: the next target, or another try at this one. */
+  scopeNext() {
+    const sc = this.scoped;
+    if (!sc) return;
+    if (sc.done) { this.nextTarget(); return; }
+    this.scoped = null;
+    this.attempt = [];
+    this.decoded = '';
+    this.resetDecoder();
+    this.state = 'send';
   }
 
   /** Play the right answer, then what he sent, so he hears the difference. */
@@ -231,8 +276,9 @@ export class Relay {
     if (this.args.then) { this.args.then({ aborted, ok: r.length > 0 && r.every((x) => x.ok), results: r }); return; }
     this.game.go('results', {
       mission: this.mode, aborted, total: r.length, correct: r.filter((x) => x.ok).length,
-      score: r.filter((x) => x.ok).reduce((s, x) => s + (x.tries === 1 ? 300 : 150), 0),
-      timing: this.gaps.length ? clean / this.gaps.length : null,
+      score: r.filter((x) => x.ok).reduce((s, x) => s + (x.tries === 1 ? 300 : 150), 0) + Math.round(this.rhythm.reduce((a, b) => a + b, 0) * 200),
+      timing: this.mode === 'scope' ? (this.rhythm.length ? this.rhythm.reduce((a, b) => a + b, 0) / this.rhythm.length : null)
+        : this.gaps.length ? clean / this.gaps.length : null,
       seconds: (performance.now() - this.startedAt) / 1000,
     });
   }
@@ -251,6 +297,11 @@ export class Relay {
     if (k === 'x' || k === 'X' || k === ']') { if (!e.repeat) { this.kb.dah = down; this.applyKeys(); } return true; }
     if (k === ' ') { if (!e.repeat) game.paddle.straight(down); return true; }
     if (!down) return false;
+    if (this.state === 'scoped') {
+      if (k === 'Enter') { this.scopeNext(); return true; }
+      if (k === 'h' || k === 'H') { this.hear(); return true; }
+      return false;
+    }
     if (this.state === 'review') {
       if (k === 'Enter') { this.nextTarget(); return true; }
       if (k === 'h' || k === 'H') { this.compare(this.reveal.want, this.reveal.got); return true; }
@@ -325,11 +376,35 @@ export class Relay {
     while (this.marks.length && this.marks[0][1] != null && this.marks[0][1] < now - SCOPE_MS) this.marks.shift();
   }
 
+  /** Scope strip: the last six seconds of keying, and the spacing meter. */
+  drawStrip(g) {
+    const game = this.game, c = g.ctx;
+    const ty = g.portrait ? 290 : 200;
+    const sx = 40, sw = g.W - 80, sy = g.portrait ? ty + 240 : g.H - 230, sh = 54;
+    g.panel(sx, sy, sw, sh, { color: C.greenDim, fillAlpha: 0.85 });
+    g.text('YOUR FIST', sx + 8, sy - 10, { size: 13, font: FONT.ui, color: C.greenDim, glow: 0 });
+    const now = game.audio.keyerNowMs();
+    c.save();
+    c.beginPath(); c.rect(sx, sy, sw, sh); c.clip();
+    c.shadowColor = C.green; c.shadowBlur = 12;
+    c.fillStyle = C.green;
+    for (const [a, b] of this.marks) {
+      const e = b ?? now;
+      const x0 = sx + sw - ((now - a) / SCOPE_MS) * sw;
+      const x1 = sx + sw - ((now - e) / SCOPE_MS) * sw;
+      c.fillRect(x0, sy + 12, Math.max(1, x1 - x0), sh - 24);
+    }
+    c.restore();
+    const fe = this.gaps.length ? this.gaps.filter((v) => v >= 2.2 && v <= 4.8).length / this.gaps.length : 1;
+    meter(g, sx + sw - 200, sy - 14, 200, 6, fe, fe > 0.8 ? C.green : C.amber, '');
+    g.text('SPACING', sx + sw - 208, sy - 11, { size: 12, font: FONT.ui, color: C.grey, align: 'right', glow: 0 });
+  }
+
   draw(g) {
     const game = this.game, c = g.ctx, pad = game.paddle;
-    backdrop(game, 'bg-relay', { dark: 0.45, rainAlpha: 0.15, zoom: 1.04 });
+    backdrop(game, this.mode === 'scope' && game.art['bg-scope'] ? 'bg-scope' : 'bg-relay', { dark: 0.45, rainAlpha: 0.15, zoom: 1.04 });
     g.shade(0, 0, g.W, 90, 'rgba(5,4,13,0.9)', 'rgba(5,4,13,0)');
-    g.text(this.args.title || { relay: 'RELAY', blind: 'BLIND RELAY', echo: 'ECHO' }[this.mode], 22, 32, { size: 38, color: C.green, spacing: 3 });
+    g.text(this.args.title || { relay: 'RELAY', blind: 'BLIND RELAY', echo: 'ECHO', scope: 'KEYING SCOPE' }[this.mode], 22, 32, { size: 38, color: C.green, spacing: 3 });
     g.text(`${Math.min(this.i + 1, this.targets.length)}/${this.targets.length}  //  KEYER ${game.store.p.settings.keyerWpm} WPM (- / +)  //  MODE ${game.store.p.settings.modeB ? 'B' : 'A'}`, 24, 60, { size: 16, font: FONT.ui, color: C.cyan, glow: 3 });
 
     // Vera's channel.
@@ -378,9 +453,19 @@ export class Relay {
       });
     }
 
+    // Keying scope: ideal against his fist, live while he keys, frozen after.
+    if (this.mode === 'scope' && this.target) {
+      const py = g.portrait ? 556 : vy + 132, ph = g.portrait ? 230 : 312;
+      const sc = this.scoped;
+      const u = 1200 / game.store.p.settings.keyerWpm;
+      const want = this.target.replace(/ /g, '');
+      const marks = sc ? sc.marks : this.attempt.map(([a, b]) => [a, b ?? game.audio.keyerNowMs()]);
+      drawFist(g, vx, py, vw, ph, want, marks, sc ? sc.u : u, sc?.a);
+    }
+
     // Target and what Vera copied.
     const cx = g.portrait ? g.W / 2 : g.W * 0.32, ty = g.portrait ? 290 : 200;
-    const label = { relay: 'SEND', blind: 'SEND FROM MEMORY', echo: 'SEND WHAT YOU HEAR' }[this.mode];
+    const label = { relay: 'SEND', blind: 'SEND FROM MEMORY', echo: 'SEND WHAT YOU HEAR', scope: 'SEND IT CLEAN' }[this.mode];
     g.text(label, cx, ty - 40, { size: 18, font: FONT.ui, color: C.grey, align: 'center', spacing: 6, glow: 0 });
     const target = this.target || '';
     const hidden = this.mode === 'echo' && this.state === 'send';
@@ -397,7 +482,13 @@ export class Relay {
       x += g.measure(got[i], 64, 'VT323', 8);
     }
     g.text(`TRY ${Math.min(this.tries + 1, this.maxTries)}/${this.maxTries}  //  BACKSPACE: CLEAR`, cx, ty + 196, { size: 14, font: FONT.ui, color: C.cyan, align: 'center', glow: 2 });
-    if (this.state === 'review') {
+    if (this.state === 'scoped') {
+      const sc = this.scoped;
+      if (game.button('hear', cx - 210, ty + 214, 200, 38, 'HEAR IT [H]', { size: 22, color: C.cyan })) this.hear();
+      if (game.button('next', cx + 10, ty + 214, 200, 38, sc.done ? 'NEXT [ENTER]' : 'TRY AGAIN [ENTER]', { size: 22, color: C.amber })) this.scopeNext();
+    } else if (this.mode === 'scope') {
+      if (game.button('hear', cx - 100, ty + 214, 200, 38, 'HEAR IT [H]', { size: 22, color: C.cyan })) this.hear();
+    } else if (this.state === 'review') {
       if (game.button('hear', cx - 210, ty + 214, 200, 38, 'HEAR BOTH [H]', { size: 22, color: C.cyan })) this.compare(this.reveal.want, this.reveal.got);
       if (game.button('next', cx + 10, ty + 214, 200, 38, 'NEXT [ENTER]', { size: 22, color: C.amber })) this.nextTarget();
     } else if (this.mode === 'relay') {
@@ -409,25 +500,7 @@ export class Relay {
       g.text('NO SOUND, NO PATTERN. YOUR SIDETONE ONLY.', cx, ty + 236, { size: 14, font: FONT.ui, color: C.amber, align: 'center', glow: 2 });
     }
 
-    // Scope: the last six seconds of keying.
-    const sx = 40, sw = g.W - 80, sy = g.portrait ? ty + 240 : g.H - 230, sh = 54;
-    g.panel(sx, sy, sw, sh, { color: C.greenDim, fillAlpha: 0.85 });
-    g.text('YOUR FIST', sx + 8, sy - 10, { size: 13, font: FONT.ui, color: C.greenDim, glow: 0 });
-    const now = game.audio.keyerNowMs();
-    c.save();
-    c.beginPath(); c.rect(sx, sy, sw, sh); c.clip();
-    c.shadowColor = C.green; c.shadowBlur = 12;
-    c.fillStyle = C.green;
-    for (const [a, b] of this.marks) {
-      const e = b ?? now;
-      const x0 = sx + sw - ((now - a) / SCOPE_MS) * sw;
-      const x1 = sx + sw - ((now - e) / SCOPE_MS) * sw;
-      c.fillRect(x0, sy + 12, Math.max(1, x1 - x0), sh - 24);
-    }
-    c.restore();
-    const fe = this.gaps.length ? this.gaps.filter((v) => v >= 2.2 && v <= 4.8).length / this.gaps.length : 1;
-    meter(g, sx + sw - 200, sy - 14, 200, 6, fe, fe > 0.8 ? C.green : C.amber, '');
-    g.text('SPACING', sx + sw - 208, sy - 11, { size: 12, font: FONT.ui, color: C.grey, align: 'right', glow: 0 });
+    if (this.mode !== 'scope') this.drawStrip(g);
 
     // Touch pads + key hints.
     const pd = this.pads();

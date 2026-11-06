@@ -2,6 +2,8 @@
 // Type what you heard and hit Enter. Every clean copy floors the Runner.
 // Word length is a ladder that climbs with him (p.rushLen), and a missed word
 // is rebuilt a letter at a time (RA, RAI, RAIN) to stretch his copy buffer.
+// OVERDRIVE: after a clean copy, now and then a word comes 3 wpm above his
+// effective speed for double points; a clean sweep of them raises the speed.
 
 import { C, FONT } from '../gfx.js';
 import { meter, drawPattern } from './common.js';
@@ -11,6 +13,8 @@ const COUNT = 14;
 const MAX_LEN = 6;
 const UP_AFTER = 3;   // clean copies in a row to climb a letter
 const DOWN_AFTER = 2; // misses in a row to drop one
+const OD_BOOST = 3;   // overdrive words: effective wpm above his own
+const OD_CHANCE = 0.3;
 
 export class Rush {
   constructor(game) {
@@ -22,6 +26,7 @@ export class Rush {
     this.streak = 0;
     this.misses = 0;
     this.build = []; // prefixes queued after a miss
+    this.od = { n: 0, ok: 0 };
     this.i = -1;
     this.typed = '';
     this.results = [];
@@ -65,8 +70,12 @@ export class Rush {
       if (this.i >= COUNT) { this.finish(false); return; }
       w = this.pick();
     }
-    const s = this.game.audio.say(w, { effWpm: this.game.store.p.effWpm });
-    this.cur = { w, build, t0: s.t0, end: s.end, window: 6 + w.length * 0.6, replayed: false };
+    const p = this.game.store.p;
+    const odWpm = Math.min(p.settings.charWpm, p.effWpm + OD_BOOST);
+    const od = !build && this.i >= 2 && this.streak > 0 && odWpm > p.effWpm && Math.random() < OD_CHANCE ? odWpm : null;
+    const s = this.game.audio.say(w, { effWpm: od ?? p.effWpm });
+    this.cur = { w, build, od, t0: s.t0, end: s.end, window: 6 + w.length * 0.6, replayed: false };
+    if (od) { this.game.audio.sfx('combo'); this.game.gfx.flash(0.15); }
     this.state = 'listen';
   }
 
@@ -92,12 +101,13 @@ export class Rush {
       this.results.push({ w: cur.w, typed: this.typed, ok });
       this.climb(ok);
       // Rebuild a missed word: first two letters, then one more each time.
+      if (cur.od) { this.od.n++; if (ok) this.od.ok++; }
       if (!ok && cur.w.length >= 3 && !cur.w.includes(' ')) {
         for (let n = 2; n <= cur.w.length; n++) this.build.push({ w: cur.w.slice(0, n), step: { n, of: cur.w.length } });
       }
     }
     if (ok) {
-      const pts = Math.round((100 * cur.w.length + Math.max(0, 300 - late * 60)) * (cur.replayed ? 0.5 : 1) * (cur.build ? 0.5 : 1));
+      const pts = Math.round((100 * cur.w.length + Math.max(0, 300 - late * 60)) * (cur.replayed ? 0.5 : 1) * (cur.build ? 0.5 : 1) * (cur.od ? 2 : 1));
       this.score += pts;
       this.speed = Math.min(900, this.speed + 160);
       game.audio.sfx(cur.w.length >= 4 ? 'combo' : 'ok');
@@ -111,7 +121,7 @@ export class Rush {
     }
     // A clean copy rolls on by itself. A miss waits for him: the word plays
     // again with its patterns shown, and he moves on when he's ready.
-    this.verdict = { ok, w: cur.w, typed: this.typed, t: ok ? 0.8 : Infinity, age: 0, rebuild: !ok && this.build.length > 0 };
+    this.verdict = { ok, w: cur.w, od: cur.od, typed: this.typed, t: ok ? 0.8 : Infinity, age: 0, rebuild: !ok && this.build.length > 0 };
     this.state = 'verdict';
     if (!ok) setTimeout(() => { if (game.scene === this && this.verdict.w === cur.w) this.hearAgain(); }, 450);
   }
@@ -120,14 +130,14 @@ export class Rush {
   replayListen() {
     if (this.state !== 'listen' || this.cur.replayed) return;
     this.cur.replayed = true;
-    const s = this.game.audio.say(this.cur.w, { effWpm: this.game.store.p.effWpm });
+    const s = this.game.audio.say(this.cur.w, { effWpm: this.cur.od ?? this.game.store.p.effWpm });
     this.cur.end = s.end;
   }
 
   hearAgain() {
     const v = this.verdict;
     if (!v || v.ok) return;
-    const s = this.game.audio.say(v.w, { effWpm: this.game.store.p.effWpm });
+    const s = this.game.audio.say(v.w, { effWpm: v.od ?? this.game.store.p.effWpm });
     v.playing = { t0: s.t0, end: s.end, chars: s.r.chars };
   }
 
@@ -138,7 +148,7 @@ export class Rush {
     if (!aborted || r.length >= 5) this.game.store.p.rushLen = this.len;
     this.game.go('results', {
       mission: 'rush', aborted, total: r.length, correct: r.filter((x) => x.ok).length,
-      score: this.score, rushLen: this.len, seconds: (performance.now() - this.startedAt) / 1000,
+      score: this.score, rushLen: this.len, overdrive: this.od.n ? this.od : null, seconds: (performance.now() - this.startedAt) / 1000,
     });
   }
 
@@ -224,7 +234,7 @@ export class Rush {
     g.shade(0, 0, g.W, 90, 'rgba(5,4,13,0.9)', 'rgba(5,4,13,0)');
     g.text('WORD RUSH', 22, 32, { size: 38, color: C.cyan, spacing: 3 });
     const step = this.cur?.build ? `REBUILD ${this.cur.build.n}/${this.cur.build.of}` : `${this.len} LETTERS`;
-    g.text(`${Math.max(0, Math.min(this.i + 1, COUNT))}/${COUNT}  //  ${step}  //  ${game.store.p.settings.charWpm} WPM @ ${game.store.p.effWpm} EFF`, 24, 60, { size: 16, font: FONT.ui, color: C.cyan, glow: 3 });
+    g.text(`${Math.max(0, Math.min(this.i + 1, COUNT))}/${COUNT}  //  ${step}  //  ${game.store.p.settings.charWpm} WPM @ ${this.cur?.od && this.state === 'listen' ? this.cur.od : game.store.p.effWpm} EFF`, 24, 60, { size: 16, font: FONT.ui, color: C.cyan, glow: 3 });
     g.text(String(this.score).padStart(6, '0'), g.W - 22, 32, { size: 40, color: C.amber, align: 'right' });
     g.text(`${Math.round(this.speed / 4)} KM/H`, g.W - 22, 62, { size: 18, color: this.speed > 400 ? C.amber : C.grey, align: 'right' });
 
@@ -237,6 +247,20 @@ export class Rush {
     }
     if (this.toast) {
       g.text(this.toast.msg, cx, g.portrait ? g.H * 0.18 : 120, { size: 34, color: this.toast.col, align: 'center', alpha: Math.min(1, this.toast.t * 2), glow: 20, spacing: 3 });
+    }
+    if (this.state === 'listen' && this.cur.od) {
+      // OVERDRIVE: the burst sprite behind the copy box, black dropped out.
+      const burst = game.art['overdrive-burst'];
+      const s = (g.portrait ? 440 : 380) * (1 + 0.06 * Math.sin(g.time * 14));
+      if (burst) {
+        c.save();
+        c.globalCompositeOperation = 'lighter';
+        c.globalAlpha = 0.3 + 0.12 * Math.sin(g.time * 9);
+        c.drawImage(burst, cx - s / 2, cy - s / 2, s, s);
+        c.restore();
+      }
+      g.rect(cx - 250, cy - 112, 500, 40, C.bg, 0.85);
+      g.text(`OVERDRIVE // ${this.cur.od} WPM // x2`, cx, cy - 92, { size: 34, color: C.cyan, align: 'center', glow: 24, spacing: 4 });
     }
     if (this.state === 'listen') {
       const playing = game.audio.cwPlaying > 0;

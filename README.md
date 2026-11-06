@@ -3,7 +3,10 @@
 A Morse code (CW) trainer game for Windows, macOS and Linux. You learn to hear letters at real speed (Koch
 method, Farnsworth spacing), then send them, through a short noir campaign of
 arcade missions: INTERCEPT, RELAY, WORD RUSH, CONTACT, and the FAUX boss at
-the end of each chapter.
+the end of each chapter. Side missions drill the hard parts: QSO LADDER (copy a real
+QSO, a field at a time), KEYING SCOPE (your fist against the ideal trace), QUICK DRAW
+(your slowest letters, against the clock), and DEAD DROP (one message a day, same for
+everyone). Clean QSOs earn cards for your QSL WALL.
 
 ![Title](docs/screenshots/title.webp)
 

@@ -53,11 +53,21 @@ export class Results {
         this.notes.push([`EFFECTIVE SPEED EASED TO ${p.effWpm} WPM`, C.amber]);
       }
     }
-    if (!r.aborted && ['relay', 'rush', 'contact', 'blind', 'echo', 'pileup', 'headcopy'].includes(r.mission)) {
+    if (!r.aborted && ['relay', 'rush', 'contact', 'blind', 'echo', 'pileup', 'headcopy', 'ladder', 'scope', 'quickdraw', 'drop'].includes(r.mission)) {
       const cap = CHAPTERS[p.chapter]?.letters ?? 41;
       const next = game.core.koch[p.unlocked];
       if (p.unlocked < cap && next) this.notes.push([`NEXT LETTER (${next}) UNLOCKS IN INTERCEPT AT 90%`, C.cyan]);
       else if (CHAPTERS[p.chapter]) this.notes.push(['BEAT FAUX TO OPEN THE NEXT CHAPTER', C.red]);
+    }
+    if (!r.aborted && r.overdrive) {
+      // A clean sweep of at least two overdrive words earns the faster speed.
+      const od = r.overdrive;
+      if (od.n >= 2 && od.ok === od.n && p.effWpm < p.settings.charWpm && !this.notes.some(([n]) => n.startsWith('EFFECTIVE SPEED UP'))) {
+        p.effWpm++;
+        this.notes.push([`OVERDRIVE CLEAN ${od.ok}/${od.n}: EFFECTIVE SPEED UP TO ${p.effWpm} WPM`, C.cyan]);
+      } else {
+        this.notes.push([`OVERDRIVE ${od.ok}/${od.n}${od.n < 2 ? '' : od.ok === od.n ? '' : '. SWEEP THEM ALL TO SPEED UP'}`, C.cyan]);
+      }
     }
     if (r.rushLen) this.notes.push([`WORD LENGTH: ${r.rushLen} LETTERS`, C.amber]);
     if (!r.aborted && r.mission === 'drill') {
@@ -73,6 +83,12 @@ export class Results {
       this.chapterCleared = p.chapter - 1;
       this.notes.push([`CHAPTER ${p.chapter} CLEARED`, C.amber]);
     }
+    if (r.qsls?.length) {
+      p.qsl = [...(p.qsl || []), ...r.qsls].slice(-200);
+      this.notes.push([`${r.qsls.length} QSL CARD${r.qsls.length === 1 ? '' : 'S'} ADDED TO THE WALL (${p.qsl.length} TOTAL)`, C.cyan]);
+    }
+    if (r.dropNote) this.notes.push([r.dropNote, C.cyan]);
+    if (r.ladderNote) this.notes.push([r.ladderNote, C.amber]);
     if (r.qsl) {
       p.qsl = [...(p.qsl || []), r.qsl].slice(-200);
       this.notes.push([`QSL CARD #${p.qsl.length} ADDED TO THE LOG`, C.cyan]);
@@ -86,7 +102,8 @@ export class Results {
     store.save(true);
 
     // Headline
-    if (r.mission === 'faux') this.headline = r.bossWon ? ['FAUX RELAY BROKEN', C.green] : r.traced ? ['TRACED', C.red] : ['HE GOT AWAY', C.red];
+    if (r.headline) this.headline = r.headline;
+    else if (r.mission === 'faux') this.headline = r.bossWon ? ['FAUX RELAY BROKEN', C.green] : r.traced ? ['TRACED', C.red] : ['HE GOT AWAY', C.red];
     else if (r.traced) this.headline = ['TRACED', C.red];
     else if (r.aborted) this.headline = ['SIGNAL DROPPED', C.amber];
     else this.headline = ['TRANSMISSION COPIED', C.green];

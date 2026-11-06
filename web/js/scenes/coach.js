@@ -8,7 +8,7 @@ import { backdrop, accColor, drawPattern } from './common.js';
 import { MORSE } from '../content.js';
 import { launch } from './hub.js';
 
-const NAMES = { intercept: 'INTERCEPT', relay: 'RELAY', rush: 'WORD RUSH', drill: 'MIX-UP DRILL', blind: 'BLIND RELAY', echo: 'ECHO', headcopy: 'HEAD COPY', pileup: 'PILEUP' };
+const NAMES = { intercept: 'INTERCEPT', relay: 'RELAY', rush: 'WORD RUSH', drill: 'MIX-UP DRILL', blind: 'BLIND RELAY', echo: 'ECHO', headcopy: 'HEAD COPY', pileup: 'PILEUP', ladder: 'QSO LADDER', scope: 'KEYING SCOPE', quickdraw: 'QUICK DRAW', drop: 'DEAD DROP' };
 const SLOW_MS = 1500;
 
 const EL = { '.': 'DIT', '-': 'DAH' };
@@ -81,7 +81,7 @@ export function prescribe(a, p) {
   } else if (a.tail.length >= 2 && p.settings.modeB) {
     out.push({ title: 'AN EXTRA ELEMENT AT THE END', why: `${ex(a.tail)}. Mode B adds one more element after a squeeze. Mode A stops when you let go.`, act: 'SWITCH TO MODE A', mode: 'modeA' });
   } else if (a.stray.length + a.short.length >= 2) {
-    out.push({ title: 'YOUR FIST NEEDS REPS', why: `${ex([...a.stray, ...a.short])}. Send from memory and hear what came out.`, act: 'BLIND RELAY', mission: 'blind' });
+    out.push({ title: 'YOUR FIST NEEDS REPS', why: `${ex([...a.stray, ...a.short])}. The scope shows exactly which gap or element went wrong.`, act: 'KEYING SCOPE', mission: 'scope' });
   }
   if (a.weak.length) {
     const w = a.weak[0];
@@ -96,14 +96,15 @@ export function prescribe(a, p) {
       title: a.trend > 1.5 ? 'YOU ARE THINKING, NOT HEARING' : `${names} ARE RIGHT BUT SLOW`,
       why: a.trend > 1.5
         ? `INTERCEPT replies went from ${secs(avg(a.icLat.slice(0, 3)))} to ${secs(avg(a.icLat.slice(-3)))}. Slow letters fill your buffer. Short, frequent INTERCEPT runs make them reflex.`
-        : `Over ${secs(SLOW_MS)} each. Speed comes from reps, not effort: short INTERCEPT runs.`,
-      act: 'INTERCEPT', mission: 'intercept',
+        : `Over ${secs(SLOW_MS)} each. You're counting them. QUICK DRAW drills your slowest letters against a shrinking clock.`,
+      act: a.trend > 1.5 ? 'INTERCEPT' : 'QUICK DRAW', mission: a.trend > 1.5 ? 'intercept' : 'quickdraw',
     });
   }
   if ((p.rushLen || 2) <= 3) {
     out.push({ title: `WORDS: ${p.rushLen || 2} LETTERS SO FAR`, why: 'Type each letter as it lands. Three clean words in a row adds a letter.', act: 'WORD RUSH', mission: 'rush' });
   }
-  for (const m of ['headcopy', 'echo', 'pileup']) {
+  for (const m of ['ladder', 'scope', 'quickdraw', 'headcopy', 'echo', 'pileup']) {
+    if (m === 'ladder' && p.unlocked < 8) continue;
     if (!a.played.has(m)) out.push({ title: `NOT TRIED YET: ${NAMES[m]}`, why: 'A different angle on the same letters.', act: NAMES[m], mission: m });
   }
   if (!out.length) out.push({ title: 'CLEAN ACROSS THE BOARD', why: 'Push for the next letter.', act: 'INTERCEPT', mission: 'intercept' });

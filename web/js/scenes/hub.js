@@ -1,6 +1,8 @@
 import { C, FONT } from '../gfx.js';
 import { backdrop, accColor, drawPattern } from './common.js';
 import { CHAPTERS, MORSE, sayPattern } from '../content.js';
+import { RUNGS, ladderState } from './ladder.js';
+import { localDay } from '../store.js';
 
 export function bossReady(p) {
   const ch = CHAPTERS[p.chapter];
@@ -14,10 +16,12 @@ export function startRun(game) {
 }
 
 const MISSIONS = ['intercept', 'relay', 'rush', 'contact', 'faux', 'drill', 'blind', 'echo', 'pileup', 'headcopy'];
+// Missions past the tenth have letter keys.
+const LETTER_KEYS = { l: 'ladder', k: 'scope', q: 'quickdraw', d: 'drop' };
 
 export function launch(game, mission) {
   if (mission === 'faux') game.go('intercept', { boss: true });
-  else if (mission === 'blind' || mission === 'echo') game.go('relay', { mode: mission });
+  else if (mission === 'blind' || mission === 'echo' || mission === 'scope') game.go('relay', { mode: mission });
   else game.go(mission);
 }
 
@@ -46,12 +50,15 @@ export class Hub {
     if (k === 'r' || k === 'R') { startRun(this.game); return true; }
     if (k === 's' || k === 'S') { this.game.go('settings'); return true; }
     if (k === 'c' || k === 'C') { this.game.go('coach'); return true; }
+    if (k === 'w' || k === 'W') { this.game.go('wall'); return true; }
+    const lm = LETTER_KEYS[k.toLowerCase()];
+    if (lm) { if (this.available(lm)) launch(this.game, lm); return true; }
     return false;
   }
 
   available(m) {
     const p = this.game.store.p;
-    if (m === 'contact') return p.unlocked >= 8;
+    if (m === 'contact' || m === 'ladder') return p.unlocked >= 8;
     if (m === 'faux') return bossReady(p);
     if (m === 'drill') return this.game.store.topPairs(3).length > 0;
     return true;
@@ -73,8 +80,11 @@ export class Hub {
     g.shade(0, 0, g.W, 110, 'rgba(5,4,13,0.95)', 'rgba(5,4,13,0)');
     g.text('NIGHT COPY', 24, 36, { size: 52, color: C.green, spacing: 5 });
     g.text(done ? 'ALL CHAPTERS CLEARED // THE CITY IS LISTENING' : `CHAPTER ${ci + 1} // ${ch.title}`, 26, 74, { size: 18, font: FONT.ui, color: C.cyan, spacing: 2, glow: 5 });
-    if (game.button('settings', g.W - 150, 18, 130, 40, 'SETUP', { size: 22, color: C.cyan })) game.go('settings');
-    if (game.button('coach', g.W - 290, 18, 130, 40, 'COACH', { size: 22, color: C.amber })) game.go('coach');
+    // Narrower on phones so they clear the title.
+    const hb = g.portrait ? 110 : 130, hs = hb + 8;
+    if (game.button('settings', g.W - 20 - hb, 18, hb, 40, 'SETUP', { size: 22, color: C.cyan })) game.go('settings');
+    if (game.button('coach', g.W - 20 - hb - hs, 18, hb, 40, 'COACH', { size: 22, color: C.amber })) game.go('coach');
+    if (game.button('wall', g.W - 20 - hb - hs * 2, 18, hb, 40, g.portrait ? 'QSLS' : 'QSL WALL', { size: 22, color: C.cyan })) game.go('wall');
 
     const portrait = g.portrait;
     const L = portrait ? { x: 20, w: g.W - 40 } : { x: 24, w: 744 };
@@ -98,11 +108,16 @@ export class Hub {
       ['echo', 'ECHO', 'HEAR IT, KEY IT BACK', 'vera-radio'],
       ['pileup', 'PILEUP', 'FIND YOUR STATION', 'scene-07-overlook'],
       ['headcopy', 'HEAD COPY', 'WORDS, NO PAPER', 'scene-03-cabinet'],
+      ['ladder', 'QSO LADDER', p.unlocked >= 8 ? `RUNG ${ladderState(p).rung + 1}: ${RUNGS[ladderState(p).rung].join('+')}` : 'NEEDS 8 LETTERS', 'card-qso'],
+      ['scope', 'KEYING SCOPE', 'GRADE YOUR GAPS', 'card-scope'],
+      ['quickdraw', 'QUICK DRAW', 'BEAT HIS DRAW', 'card-quickdraw'],
+      ['drop', 'DEAD DROP', p.drops?.[localDay()] ? `TODAY ${p.drops[localDay()].pct}%` : "TODAY'S MESSAGE", 'card-deaddrop'],
     ];
-    const cols = portrait ? 3 : 4;
+    const keyOf = (id, i) => (i < 10 ? String((i + 1) % 10) : Object.keys(LETTER_KEYS).find((k) => LETTER_KEYS[k] === id).toUpperCase());
+    const cols = 4;
     const gap = 10;
     const cw = (L.w - gap * (cols - 1)) / cols;
-    const chh = portrait ? 112 : 136;
+    const chh = portrait ? 100 : 104;
     cards.forEach(([id, label, sub, art], i) => {
       const cx = L.x + (i % cols) * (cw + gap);
       const cy = y + Math.floor(i / cols) * (chh + gap);
@@ -112,7 +127,7 @@ export class Hub {
       if (game.button(id, cx, cy, cw, chh, label, {
         art: game.art[art], sub, disabled: !ok, size: 26,
         color: boss ? C.red : C.green,
-        badge: best ? `BEST ${best}` : `[${(i + 1) % 10}]`, badgeColor: boss ? C.red : C.amber,
+        badge: best ? `BEST ${best}` : `[${keyOf(id, i)}]`, badgeColor: boss ? C.red : C.amber,
       })) launch(game, id);
       if (boss) g.panel(cx - 3, cy - 3, cw + 6, chh + 6, { color: C.red, fillAlpha: 0, glow: 10 + 10 * Math.sin(this.t * 5) });
     });
@@ -177,6 +192,6 @@ export class Hub {
       drawPattern(g, MORSE[pk.c] || '', px + pw / 2, py + 122, 18, game.audio.cwPlaying ? C.white : C.cyan, a);
       g.text(sayPattern(pk.c).toUpperCase() + (pk.open ? '' : '  //  NOT UNLOCKED YET'), px + pw / 2, py + 162, { size: 14, font: FONT.ui, color: C.grey, align: 'center', alpha: a, glow: 0 });
     }
-    if (!portrait) g.text('1-9, 0 MISSIONS  //  R RUN  //  C COACH  //  S SETUP  //  ARROWS + ENTER', L.x, g.H - 52, { size: 14, font: FONT.ui, color: C.grey, glow: 0 });
+    if (!portrait) g.text('1-9, 0, L K Q D MISSIONS  //  R RUN  //  C COACH  //  W QSL WALL  //  S SETUP', L.x, g.H - 52, { size: 14, font: FONT.ui, color: C.grey, glow: 0 });
   }
 }

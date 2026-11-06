@@ -4,6 +4,7 @@
 
 import { C, FONT } from '../gfx.js';
 import { backdrop } from './common.js';
+import { Fields } from './fields.js';
 import { NAMES, QTHS, callsign, rand } from '../content.js';
 import { localDay, myCall } from '../store.js';
 
@@ -67,14 +68,9 @@ export class Contact {
       });
       return;
     }
-    this.fields = st.fields.map(([label, value]) => ({
-      label, value,
-      // Pre-fill characters not unlocked yet; the rest are blanks to copy.
-      typed: [...value].map((ch) => (this.set.has(ch) ? '' : ch)),
-      locked: [...value].map((ch) => !this.set.has(ch)),
-    }));
-    this.active = 0;
-    this.cursorToBlank();
+    // Characters not unlocked yet are pre-filled; the rest are blanks to copy.
+    this.entry = new Fields(st.fields, this.set);
+    this.fields = this.entry.list;
     this.state = 'rx';
     this.play();
     game.wantText(this.fields.length > 0);
@@ -86,12 +82,8 @@ export class Contact {
     this.rx = { t0: s.t0, end: s.end, marks: s.r.marks };
   }
 
-  cursorToBlank() {
-    const f = this.fields?.[this.active];
-    if (!f) return;
-    this.pos = f.typed.findIndex((c, i) => !c && !f.locked[i]);
-    if (this.pos < 0) this.pos = f.value.length;
-  }
+  get active() { return this.entry?.active ?? 0; }
+  get pos() { return this.entry?.pos ?? 0; }
 
   submit() {
     const game = this.game;
@@ -132,33 +124,11 @@ export class Contact {
     if (this.state !== 'rx') return false;
     if (e.key === '?' || (e.key === 'Tab' && e.shiftKey)) { this.replays++; this.play(); return true; }
     if (!this.fields.length) return true;
-    const f = this.fields[this.active];
-    if (e.key === 'Enter' || e.key === 'Tab') {
-      if (this.active < this.fields.length - 1) { this.active++; this.cursorToBlank(); }
-      else if (e.key === 'Enter') this.submit();
-      return true;
-    }
-    if (e.key === 'ArrowUp') { this.active = Math.max(0, this.active - 1); this.cursorToBlank(); return true; }
-    if (e.key === 'ArrowDown') { this.active = Math.min(this.fields.length - 1, this.active + 1); this.cursorToBlank(); return true; }
-    if (e.key === 'Backspace') {
-      let i = Math.min(this.pos, f.value.length) - 1;
-      while (i >= 0 && f.locked[i]) i--;
-      if (i >= 0) { f.typed[i] = ''; this.pos = i; }
-      return true;
-    }
-    if (e.key.length === 1 && /[a-z0-9?/]/i.test(e.key)) {
-      let i = this.pos;
-      while (i < f.value.length && f.locked[i]) i++;
-      if (i < f.value.length) {
-        f.typed[i] = e.key.toUpperCase();
-        game.audio.sfx('type');
-        i++;
-        while (i < f.value.length && f.locked[i]) i++;
-        this.pos = i;
-        if (i >= f.value.length && this.active < this.fields.length - 1) { this.active++; this.cursorToBlank(); }
-      }
-      return true;
-    }
+    if (e.key === 'Tab' && this.active >= this.fields.length - 1) return true;
+    const r = this.entry.key(e);
+    if (r === 'submit') { this.submit(); return true; }
+    if (r === 'typed') game.audio.sfx('type');
+    if (r) return true;
     return false;
   }
 

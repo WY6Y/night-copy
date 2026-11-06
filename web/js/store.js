@@ -23,6 +23,8 @@ export const DEFAULTS = {
   confusions: {},        // 'K>R': weight (heard K, typed R); fades as K is copied right
   sendMix: {},           // 'A>N': weight (asked for A, sent N); fades as A is sent right
   rushLen: 2,            // WORD RUSH word length ladder
+  ladder: { rung: 0, clean: 0, poor: 0 }, // QSO LADDER rung and its streaks
+  drops: {},             // DEAD DROP: { 'YYYY-MM-DD': { pct, score, plays } }
   settings: {
     charWpm: 20, tone: 600, keyerWpm: 16, modeB: true, swap: false,
     cwVol: 0.8, sfxVol: 0.7, musicVol: 0.45, rainVol: 0.5, crt: true,

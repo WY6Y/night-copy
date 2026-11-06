@@ -20,6 +20,10 @@ import { Coach } from './scenes/coach.js';
 import { Drill } from './scenes/drill.js';
 import { Pileup } from './scenes/pileup.js';
 import { HeadCopy } from './scenes/headcopy.js';
+import { Ladder } from './scenes/ladder.js';
+import { QuickDraw } from './scenes/quickdraw.js';
+import { Drop } from './scenes/drop.js';
+import { Wall } from './scenes/wall.js';
 
 const ART = [
   'bg-title', 'bg-intercept', 'bg-relay', 'bg-rush', 'bg-contact', 'bg-faux', 'bg-shack-hub', 'boss-faux-eye',
@@ -28,6 +32,7 @@ const ART = [
   'scene-09-director-room', 'scene-10-relay-tunnel', 'scene-12-threshold-faux', 'scene-15-foxhunt-bearing',
   'char-dame', 'char-operator', 'char-villain-faux', 'prop-runner-side', 'scene-14-fragment-crt',
   'scene-03-cabinet', 'scene-11-nightop-watcher',
+  'card-qso', 'card-scope', 'card-quickdraw', 'card-deaddrop', 'bg-scope', 'qsl-blank', 'overdrive-burst',
 ];
 
 class Game {
@@ -52,7 +57,7 @@ class Game {
     await Promise.all(ART.map(async (n) => {
       this.art[n] = await loadImage(`assets/art/${n}.webp`);
     }));
-    this.scenes = { title: Title, hub: Hub, intercept: Intercept, rush: Rush, relay: Relay, contact: Contact, story: Story, results: Results, settings: Settings, coach: Coach, drill: Drill, pileup: Pileup, headcopy: HeadCopy };
+    this.scenes = { title: Title, hub: Hub, intercept: Intercept, rush: Rush, relay: Relay, contact: Contact, story: Story, results: Results, settings: Settings, coach: Coach, drill: Drill, pileup: Pileup, headcopy: HeadCopy, ladder: Ladder, quickdraw: QuickDraw, drop: Drop, wall: Wall };
     this.mouse = { x: -1, y: -1, down: false, clicked: false };
     this.ui = { buttons: [], focus: -1, activate: null, lastHover: null };
     this.toasts = [];
