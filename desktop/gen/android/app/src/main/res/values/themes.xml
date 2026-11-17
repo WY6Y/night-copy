@@ -1,0 +1,7 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Dark from the first frame: the launch screen and any gap around the
+         game are the game's own background colour. -->
+    <style name="Theme.night_copy" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">@color/night</item>
+    </style>
+</resources>

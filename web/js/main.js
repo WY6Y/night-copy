@@ -67,10 +67,15 @@ class Game {
     this.go('title');
     let last = performance.now();
     const loop = (t) => {
-      const dt = Math.min(0.05, (t - last) / 1000);
-      last = t;
-      // window.cybercw.paused = true stops drawing (debug: frees the main thread).
-      if (!this.paused) this.frame(dt);
+      // Draw at the FRAME RATE setting (30 or 60), not the screen's rate: a
+      // 120 Hz phone would otherwise draw four times as often as 30 needs.
+      // The 2 ms slack stops a rate the screen matches from halving.
+      if (t - last >= 1000 / this.store.p.settings.fps - 2) {
+        const dt = Math.min(0.05, (t - last) / 1000);
+        last = t;
+        // window.cybercw.paused = true stops drawing (debug: frees the main thread).
+        if (!this.paused) this.frame(dt);
+      }
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
@@ -99,6 +104,16 @@ class Game {
     this.scene.enter?.();
   }
 
+  /**
+   * Android's back gesture (the app's MainActivity calls this): Esc, except
+   * on the title and the hub, where false lets the app go to the background.
+   */
+  back() {
+    if (['title', 'hub'].includes(this.sceneName)) return false;
+    this.scene.onKey?.({ key: 'Escape', preventDefault() {} }, true);
+    return true;
+  }
+
   toast(text, color = C.amber, sec = 3.5) {
     this.toasts.push({ text, color, t: sec });
   }
@@ -111,8 +126,14 @@ class Game {
     c.addEventListener('pointermove', (e) => { pos(e); this.ui.focus = -1; });
     c.addEventListener('pointerdown', (e) => {
       pos(e); this.mouse.down = true; this.mouse.pressed = true; this.wake();
+      this.pointerType = e.pointerType;
       if (this.textWanted) this.typeBox.focus({ preventScroll: true });
       this.scene.onPointer?.(this.mouse.x, this.mouse.y, true);
+    });
+    // On Android a tap's mousedown comes after the touch is over, and focusing
+    // the canvas then closes the phone keyboard the tap just opened.
+    c.addEventListener('mousedown', (e) => {
+      if (this.textWanted && this.pointerType !== 'mouse') e.preventDefault();
     });
     addEventListener('pointerup', (e) => {
       pos(e); this.mouse.down = false; this.mouse.clicked = true; this.wake();
@@ -142,6 +163,7 @@ class Game {
       for (const ch of v) this.scene.onKey?.({ key: ch, synthetic: true, preventDefault() {} }, true);
     });
     addEventListener('blur', () => this.scene.onBlur?.());
+    if (BUILD.android) document.addEventListener('visibilitychange', () => this.audio.hush(document.hidden));
   }
 
   wantText(on) {

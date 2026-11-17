@@ -27,7 +27,7 @@ export const DEFAULTS = {
   drops: {},             // DEAD DROP: { 'YYYY-MM-DD': { pct, score, plays } }
   settings: {
     charWpm: 20, tone: 600, keyerWpm: 16, modeB: true, swap: false,
-    cwVol: 0.8, sfxVol: 0.7, musicVol: 0.45, rainVol: 0.5, crt: true,
+    cwVol: 0.8, sfxVol: 0.7, musicVol: 0.45, rainVol: 0.5, crt: true, fps: 30,
     call: BUILD.call,      // the player's callsign, sent in RELAY and CONTACT
   },
   updated: 0,

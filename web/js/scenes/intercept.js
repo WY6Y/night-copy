@@ -4,7 +4,7 @@
 // station, spoofed visual hints, and Faux's integrity bar to break.
 
 import { C, FONT } from '../gfx.js';
-import { backdrop, tiles, meter, accColor } from './common.js';
+import { backdrop, tiles, tileLayout, meter, accColor } from './common.js';
 import { CHAPTERS } from '../content.js';
 
 const NORMAL_COUNT = 40, BOSS_COUNT = 32;
@@ -339,11 +339,12 @@ export class Intercept {
 
     // Answer tiles (touch) and keyboard hint.
     if (this.state === 'play') {
-      const hit = tiles(game, this.letters, { colorOf: (ch) => accColor(p.stats[ch]), y: g.H - 34, size: g.portrait ? 62 : 44 });
+      // Big tiles for thumbs, shrinking as letters unlock so they stay
+      // clear of the trace line where packets land.
+      const layout = { y: g.H - 34, size: g.portrait ? 124 : 88, maxH: g.H * (g.portrait ? 0.32 : 0.25) };
+      const hit = tiles(game, this.letters, { ...layout, colorOf: (ch) => accColor(p.stats[ch]) });
       if (hit) this.answer(hit);
-      const tsz = g.portrait ? 62 : 44;
-      const perRow = Math.max(1, Math.min(this.letters.length, Math.floor((g.W - 40 + 8) / (tsz + 8))));
-      const tilesTop = g.H - 34 - Math.ceil(this.letters.length / perRow) * (tsz + 8);
+      const tilesTop = tileLayout(g, this.letters.length, layout).top;
       const canReplay = pk && !pk.replayed && !pk.done;
       if (game.button('replay', g.W / 2 - 130, tilesTop - 58, 260, 44, canReplay ? 'HEAR AGAIN [SPACE]' : 'HEARD AGAIN', { size: 20, color: C.cyan, disabled: !canReplay })) this.replay();
       if (!g.portrait) g.text('TYPE OR TAP THE LETTER  //  HEAR AGAIN BREAKS THE COMBO', g.W / 2, tilesTop - 70, { size: 13, font: FONT.ui, color: C.grey, align: 'center', glow: 0 });

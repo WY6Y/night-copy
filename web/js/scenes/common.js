@@ -52,15 +52,28 @@ export function dialogue(game, speaker, text, chars, o = {}) {
   if (chars >= text.length && Math.sin(g.time * 6) > 0) g.text('>>', bx + bw - 20, by + ph - 22, { size: 22, color: col, align: 'right' });
 }
 
+/**
+ * Answer tile grid for n letters, in rows ending at `y`. Tiles are `size`
+ * square, shrunk (never below 40) until the rows fit in `maxH` if given.
+ */
+export function tileLayout(g, n, o = {}) {
+  const gap = 8;
+  let size = o.size || (g.portrait ? 64 : 52);
+  let perRow, rows;
+  for (;;) {
+    perRow = Math.max(1, Math.min(n, Math.floor((g.W - 40 + gap) / (size + gap))));
+    rows = Math.ceil(n / perRow);
+    if (!o.maxH || rows * (size + gap) <= o.maxH || size <= 40) break;
+    size -= 2;
+  }
+  return { size, gap, perRow, top: (o.y ?? g.H - 40) - rows * (size + gap) };
+}
+
 /** On-screen answer tiles (for touch). Returns the tapped character or null. */
 export function tiles(game, letters, o = {}) {
   const g = game.gfx;
   const n = letters.length;
-  const size = o.size || (g.portrait ? 64 : 52);
-  const gap = 8;
-  const perRow = Math.max(1, Math.min(n, Math.floor((g.W - 40 + gap) / (size + gap))));
-  const rows = Math.ceil(n / perRow);
-  const y0 = (o.y ?? g.H - 40) - rows * (size + gap);
+  const { size, gap, perRow, top: y0 } = tileLayout(g, n, o);
   let hit = null;
   letters.forEach((ch, i) => {
     const r = Math.floor(i / perRow), k = i % perRow;

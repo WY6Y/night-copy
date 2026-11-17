@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "description": "Tauri CLI for the Night Copy app. The Android build calls it as `npx tauri`.",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4"
+  }
+}

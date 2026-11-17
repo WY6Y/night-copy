@@ -2,7 +2,13 @@
 name = "night-copy"
 version = "0.2.0"
 edition = "2021"
-description = "Night Copy: CW trainer game, Windows desktop app"
+description = "Night Copy: CW trainer game, desktop and Android app"
+
+# A library as well as the desktop binary: Android loads the app as a shared
+# library.
+[lib]
+name = "night_copy_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

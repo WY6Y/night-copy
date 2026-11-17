@@ -1,2 +1,4 @@
 target/
 *.wasm.tmp
+node_modules/
+desktop/gen/schemas/

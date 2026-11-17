@@ -1,6 +1,6 @@
 # Night Copy
 
-A Morse code (CW) trainer game for Windows, macOS and Linux. You learn to hear letters at real speed (Koch
+A Morse code (CW) trainer game for Windows, macOS, Linux and Android. You learn to hear letters at real speed (Koch
 method, Farnsworth spacing), then send them, through a short noir campaign of
 arcade missions: INTERCEPT, RELAY, WORD RUSH, CONTACT, and the FAUX boss at
 the end of each chapter. Side missions drill the hard parts: QSO LADDER (copy a real
@@ -49,6 +49,18 @@ From [Releases](../../releases), either:
 
 Progress is saved in `~/.local/share/net.wy6y.nightcopy/`.
 
+## Install (Android 7 or later)
+
+1. On the phone, open [Releases](../../releases) and download
+   `Night.Copy_x.y.z_android.apk`.
+2. Open the download. Android asks you to allow installs from your browser
+   ("Install unknown apps"): allow it, then tap **Install**. If Play Protect
+   says it doesn't recognise the app, tap **More details > Install anyway**.
+3. Start **Night Copy**. It plays full screen, upright or sideways.
+
+Progress is saved inside the app, so uninstalling it erases your progress.
+Updates install over the top and keep it.
+
 ## A real paddle
 
 Build the USB adapter in [WY6Y/cw-paddle-pico](https://github.com/WY6Y/cw-paddle-pico)
@@ -61,6 +73,8 @@ Note 20 for dit and Note 21 for dah.
   With Night Copy running, open `http://127.0.0.1:51600/` in Chrome or Edge
   and play there (same saved progress), then SETUP > CONNECT PADDLE. Leave the
   app's own window on the title screen.
+- **Android:** not tried yet. Plug the paddle in with a USB OTG adapter, then
+  SETUP > CONNECT PADDLE.
 
 ## Playing
 
@@ -68,7 +82,9 @@ Note 20 for dit and Note 21 for dah.
   90% over 30+ letters unlocks the next one.
 - Sending (RELAY, CONTACT): `Z` / `[` dit, `X` / `]` dah, Space as a straight
   key, `-` / `+` keyer speed, `H` to hear the target, or a real paddle (below).
-- SETUP (`S` on the hub) has speed, tone, volumes and your callsign.
+- On Android, tap the DIT and DAH pads to send. Back does what `Esc` does.
+- SETUP (`S` on the hub) has speed, tone, volumes, frame rate (30 by default, to
+  save battery; 60 is smoother) and your callsign.
   `F11` toggles fullscreen. `Esc` leaves a mission.
 
 ## Layout
@@ -78,17 +94,29 @@ Note 20 for dit and Note 21 for dah.
 | `core/` | Rust timing core, built to `web/core.wasm`: CW renderer, iambic keyer, decoder, Koch scheduler |
 | `server/` | Rust library (axum + SQLite): progress, session log, static files |
 | `web/` | The game (WebGL2, Web Audio) |
-| `desktop/` | Tauri v2 app: runs the server on 127.0.0.1 and opens a WebView2 window |
+| `desktop/` | Tauri v2 app: runs the server on 127.0.0.1 and opens a native web view. `gen/android/` is its Android project |
 
 ## Build
 
 The packages are built by GitHub Actions on Windows, macOS and Linux: push a
 tag `vX.Y.Z` (matching `version` in `desktop/tauri.conf.json`) and the
-workflow attaches the `.exe`, `.dmg`, `.AppImage` and `.deb` to a Release.
+workflow attaches the `.exe`, `.dmg`, `.AppImage`, `.deb` and Android `.apk`
+to a Release. The APK is signed with the key in the repository secrets
+`ANDROID_KEYSTORE` (the `.jks` file, base64) and `ANDROID_KEYSTORE_PASSWORD`
+(alias `nightcopy`). Every APK must be signed with that same key, or phones
+refuse to install the update over the old version.
 Locally:
 
     cd desktop
     npx @tauri-apps/cli@2 build
+
+Android (needs the Android SDK and NDK, `ANDROID_HOME` and `NDK_HOME` set, and
+JDK 17 or later). For a signed APK, put `keyAlias`, `password` and `storeFile`
+in `desktop/gen/android/keystore.properties` (it is not committed):
+
+    cd desktop
+    npm install
+    npx tauri android build --apk --target aarch64 armv7
 
 Rebuild the core after changing it:
 

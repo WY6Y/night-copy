@@ -193,11 +193,20 @@ export class Results {
     const run = game.run;
     const more = run && run.i + 1 < run.queue.length;
     const label = this.chapterCleared != null ? 'CONTINUE STORY' : more ? `NEXT: ${run.queue[run.i + 1].toUpperCase()}` : 'BACK TO THE SHACK';
-    const bw = Math.min(420, g.W - 40);
-    const byy = Math.min(g.H - 120, Math.max(y + 16, g.H - 190));
-    if (this.t > 0.8 && game.button('next', cx - bw / 2, byy, bw, 58, label, { size: 32, color: C.amber })) this.next();
-    if (this.t > 0.8 && game.button('again', cx - bw / 2, byy + 66, bw, 40, 'RUN THIS MISSION AGAIN', { size: 20, color: C.cyan })) {
-      launch(game, r.mission);
+    if (this.t <= 0.8) return;
+    // Thumb-sized: stacked in portrait, side by side in landscape where height is short.
+    const again = 'RUN THIS MISSION AGAIN';
+    let next, rerun;
+    if (g.portrait) {
+      const bw = g.W - 80, byy = Math.min(g.H - 280, Math.max(y + 16, g.H - 300));
+      next = game.button('next', cx - bw / 2, byy, bw, 100, label, { size: 44, color: C.amber });
+      rerun = game.button('again', cx - bw / 2, byy + 114, bw, 80, again, { size: 32, color: C.cyan });
+    } else {
+      const bw = 440, byy = Math.min(g.H - 112, Math.max(y + 16, g.H - 180));
+      next = game.button('next', cx - bw - 10, byy, bw, 88, label, { size: 40, color: C.amber });
+      rerun = game.button('again', cx + 10, byy, bw, 88, again, { size: 32, color: C.cyan });
     }
+    if (next) this.next();
+    if (rerun) launch(game, r.mission);
   }
 }

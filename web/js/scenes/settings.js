@@ -1,5 +1,6 @@
 import { C, FONT } from '../gfx.js';
 import { backdrop } from './common.js';
+import { BUILD } from '../build.js';
 
 const ROWS = [
   ['call', 'YOUR CALL', '', 0, 0, 0, 'Sent in RELAY and CONTACT. Enter to edit, type it, Enter to save.'],
@@ -13,6 +14,7 @@ const ROWS = [
   ['musicVol', 'MUSIC VOLUME', '%', 0, 1, 0.05, 'Music ducks whenever CW plays.'],
   ['rainVol', 'RAIN VOLUME', '%', 0, 1, 0.05, ''],
   ['crt', 'SCANLINES', '', 0, 1, 1, 'CRT scanlines.'],
+  ['fps', 'FRAME RATE', 'FPS', 30, 60, 30, '30 uses about half the CPU of 60, which saves battery. 60 is smoother.'],
 ];
 
 export class Settings {
@@ -90,7 +92,9 @@ export class Settings {
     backdrop(game, 'bg-shack-hub', { dark: 0.75, rainAlpha: 0.2 });
     g.text('SETUP', 24, 40, { size: 52, color: C.cyan, spacing: 5 });
     const w = Math.min(900, g.W - 40), x = (g.W - w) / 2;
-    let y = 90;
+    // Rows squeeze a little in landscape so they all fit.
+    const rh = g.portrait ? 44 : 42;
+    let y = g.portrait ? 90 : 84;
     ROWS.forEach(([key, label, unit], i) => {
       const v = s[key];
       const shown = key === 'call' ? (this.editing !== null ? `${this.editing}_` : v || 'NOT SET') : typeof v === 'boolean' ? (key === 'modeB' ? (v ? 'B' : 'A') : v ? 'ON' : 'OFF') : unit === '%' ? `${Math.round(v * 100)}%` : `${v} ${unit}`;
@@ -102,13 +106,13 @@ export class Settings {
         if (this.editing !== null) {
           if (game.button('call-ok', x + w - 250, y + 4, 60, 32, 'OK', { size: 22 })) this.finishEdit();
         } else if (game.button('call-edit', x + w - 250, y + 4, 70, 32, 'EDIT', { size: 22 })) { this.sel = i; this.startEdit(); }
-        y += 44;
+        y += rh;
         return;
       }
       if (game.button(`m-${key}`, x + w - 250, y + 4, 40, 32, '<', { size: 24 })) { this.sel = i; this.change(i, -1); }
       g.text(shown, x + w - 130, y + 20, { size: 26, color: C.white, align: 'center' });
       if (game.button(`p-${key}`, x + w - 50, y + 4, 40, 32, '>', { size: 24 })) { this.sel = i; this.change(i, 1); }
-      y += 44;
+      y += rh;
     });
     const help = this.askCall ? 'Type your callsign (or your name) and press Enter. You will send it in RELAY and CONTACT.' : ROWS[this.sel][6];
     if (help) g.text(help, g.W / 2, y + 16, { size: 16, font: FONT.ui, color: C.cyan, align: 'center' });
@@ -116,8 +120,9 @@ export class Settings {
     const p = game.paddle;
     g.text(`${p.statusText()}${p.input ? `  //  ${p.input.name}` : ''}`, g.W / 2, y, { size: 16, font: FONT.ui, color: p.state === 'ok' ? C.green : C.amber, align: 'center' });
     y += 22;
-    if (game.button('midi', g.W / 2 - 300, y, 290, 40, 'CONNECT PADDLE', { size: 22, color: C.green })) { p.connect(); }
-    if (game.button('fs', g.W / 2 + 10, y, 290, 40, 'FULLSCREEN', { size: 22, color: C.cyan })) game.fullscreen();
+    // The Android app is always full screen: no FULLSCREEN button there.
+    if (game.button('midi', g.W / 2 - (BUILD.android ? 145 : 300), y, 290, 40, 'CONNECT PADDLE', { size: 22, color: C.green })) { p.connect(); }
+    if (!BUILD.android && game.button('fs', g.W / 2 + 10, y, 290, 40, 'FULLSCREEN', { size: 22, color: C.cyan })) game.fullscreen();
     if (!this.askCall && game.button('back', 24, g.H - 84, 200, 44, 'BACK', { size: 26, color: C.amber })) this.leave();
     g.text('ARROWS TO ADJUST  //  ESC: BACK', g.W - 24, g.H - 62, { size: 13, font: FONT.ui, color: C.grey, align: 'right', glow: 0 });
   }

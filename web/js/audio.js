@@ -136,6 +136,22 @@ export class Audio {
 
   now() { return this.ctx ? this.ctx.currentTime : 0; }
 
+  /**
+   * The Android app behind another app: everything stops, then picks up
+   * where it was. (Its web view keeps playing otherwise. Pausing <audio> is
+   * safe there; the iOS session problem in music() doesn't apply.)
+   */
+  hush(hidden) {
+    if (!this.ctx) return;
+    if (hidden) {
+      this.ctx.suspend().catch(() => {});
+      for (const el of Object.values(this.tracks || {})) el.pause();
+    } else {
+      this.ctx.resume().catch(() => {});
+      this.musicEl?.play().catch(() => {});
+    }
+  }
+
   // ---- music ---------------------------------------------------------------
 
   music(name) {
