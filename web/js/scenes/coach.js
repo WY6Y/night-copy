@@ -8,7 +8,7 @@ import { backdrop, accColor, drawPattern } from './common.js';
 import { MORSE } from '../content.js';
 import { launch } from './hub.js';
 
-const NAMES = { intercept: 'INTERCEPT', relay: 'RELAY', rush: 'WORD RUSH', drill: 'MIX-UP DRILL', blind: 'BLIND RELAY', echo: 'ECHO', headcopy: 'HEAD COPY', pileup: 'PILEUP', ladder: 'QSO LADDER', scope: 'KEYING SCOPE', quickdraw: 'QUICK DRAW', drop: 'DEAD DROP' };
+const NAMES = { intercept: 'INTERCEPT', relay: 'RELAY', rush: 'WORD RUSH', drill: 'MIX-UP DRILL', blind: 'BLIND RELAY', echo: 'ECHO', headcopy: 'HEAD COPY', pileup: 'PILEUP', ladder: 'QSO LADDER', scope: 'KEYING SCOPE', quickdraw: 'QUICK DRAW', drop: 'DEAD DROP', freerun: 'FREE RUN', freekey: 'FREE KEY' };
 const SLOW_MS = 1500;
 
 const EL = { '.': 'DIT', '-': 'DAH' };
@@ -59,6 +59,9 @@ export function analyze(p, koch, sessions) {
     held: kinds('held'), tail: kinds('extra-end'), stray: kinds('extra'), short: kinds('short', 'missing'),
     icLat: lat, icAcc: ic.map((s) => s.correct / s.total),
     rushAcc: of('rush').map((s) => s.correct / s.total),
+    // Spacing from every keying mission, FREE KEY included (it has no target,
+    // so it is never graded for which letters came out).
+    spacing: sessions.filter((s) => !s.detail?.aborted && s.detail?.spacing != null).map((s) => s.detail.spacing),
     unlockedAt: done.map((s) => s.detail?.unlocked || 0),
     missions: done.length, minutes: Math.round(sessions.reduce((t, s) => t + (s.seconds || 0), 0) / 60),
     played: new Set(sessions.map((s) => s.mission)),
@@ -82,6 +85,10 @@ export function prescribe(a, p) {
     out.push({ title: 'AN EXTRA ELEMENT AT THE END', why: `${ex(a.tail)}. Mode B adds one more element after a squeeze. Mode A stops when you let go.`, act: 'SWITCH TO MODE A', mode: 'modeA' });
   } else if (a.stray.length + a.short.length >= 2) {
     out.push({ title: 'YOUR FIST NEEDS REPS', why: `${ex([...a.stray, ...a.short])}. The scope shows exactly which gap or element went wrong.`, act: 'KEYING SCOPE', mission: 'scope' });
+  }
+  const sp = a.spacing.slice(-3);
+  if (out.length < 1 && sp.length >= 3 && avg(sp) < 0.7) {
+    out.push({ title: `YOUR GAPS WANDER (${pct(avg(sp))} CLEAN)`, why: 'Letter gaps should sit near 3 dits and word gaps near 7. The scope shows each gap against the ideal.', act: 'KEYING SCOPE', mission: 'scope' });
   }
   if (a.weak.length) {
     const w = a.weak[0];
@@ -232,10 +239,11 @@ export class Coach {
   drawTrend(g, a, x, y, w, h) {
     g.panel(x, y, w, h, { color: C.greenDim, fillAlpha: 0.85 });
     g.text('TRENDS', x + 16, y + 26, { size: 24, color: C.green, spacing: 2 });
-    const sh = (h - 60) / 3;
+    const sh = (h - 60) / 4;
     spark(g, x + 16, y + 44, w - 32, sh - 8, a.icLat, C.amber, secs, 'INTERCEPT: SECONDS TO ANSWER (LOWER IS BETTER)');
     spark(g, x + 16, y + 44 + sh, w - 32, sh - 8, a.icAcc, C.green, pct, 'INTERCEPT: ACCURACY', [0, 1]);
     spark(g, x + 16, y + 44 + sh * 2, w - 32, sh - 8, a.rushAcc, C.cyan, pct, 'WORD RUSH: WORDS COPIED', [0, 1]);
+    spark(g, x + 16, y + 44 + sh * 3, w - 32, sh - 8, a.spacing, C.green, pct, 'KEYING: CLEAN SPACING (RELAY, ECHO, FREE KEY...)', [0, 1]);
   }
 }
 

@@ -5,9 +5,11 @@
 //   echo:  the target is only heard; key back what you heard.
 //   scope: KEYING SCOPE. His keying is traced against the ideal timing, live,
 //          and every try is graded for rhythm (see scope.js).
+// FREE RUN sends come in as { free: true, targets }: same grading, but his
+// send stats are left alone.
 
 import { C, FONT } from '../gfx.js';
-import { backdrop, meter, drawPattern } from './common.js';
+import { backdrop, meter, drawPattern, guardOverlay } from './common.js';
 import { CW_WORDS, WORDS, MORSE, canSay, rand, sayPattern } from '../content.js';
 import { myCall } from '../store.js';
 import { analyzeFist, drawFist } from './scope.js';
@@ -187,8 +189,8 @@ export class Relay {
     const want = this.target.replace(/ /g, '');
     const got = this.decoded.replace(/ /g, '');
     const ok = got === want;
-    for (const ch of want) game.store.recordSend(ch, ok);
-    if (!ok && this.mode !== 'relay' && got.length === want.length) {
+    if (!this.args.free) for (const ch of want) game.store.recordSend(ch, ok);
+    if (!ok && !this.args.free && this.mode !== 'relay' && got.length === want.length) {
       for (let k = 0; k < want.length; k++) game.store.recordSendMix(want[k], got[k]);
     }
     if (ok) {
@@ -275,7 +277,7 @@ export class Relay {
     const clean = this.gaps.filter((x) => x >= 2.2 && x <= 4.8).length;
     if (this.args.then) { this.args.then({ aborted, ok: r.length > 0 && r.every((x) => x.ok), results: r }); return; }
     this.game.go('results', {
-      mission: this.mode, aborted, total: r.length, correct: r.filter((x) => x.ok).length,
+      mission: this.args.free ? 'freerun' : this.mode, aborted: aborted && !(this.args.free && r.length), total: r.length, correct: r.filter((x) => x.ok).length,
       score: r.filter((x) => x.ok).reduce((s, x) => s + (x.tries === 1 ? 300 : 150), 0) + Math.round(this.rhythm.reduce((a, b) => a + b, 0) * 200),
       timing: this.mode === 'scope' ? (this.rhythm.length ? this.rhythm.reduce((a, b) => a + b, 0) / this.rhythm.length : null)
         : this.gaps.length ? clean / this.gaps.length : null,
@@ -401,7 +403,7 @@ export class Relay {
   }
 
   draw(g) {
-    const game = this.game, c = g.ctx, pad = game.paddle;
+    const game = this.game, c = g.ctx;
     backdrop(game, this.mode === 'scope' && game.art['bg-scope'] ? 'bg-scope' : 'bg-relay', { dark: 0.45, rainAlpha: 0.15, zoom: 1.04 });
     g.shade(0, 0, g.W, 90, 'rgba(5,4,13,0.9)', 'rgba(5,4,13,0)');
     g.text(this.args.title || { relay: 'RELAY', blind: 'BLIND RELAY', echo: 'ECHO', scope: 'KEYING SCOPE' }[this.mode], 22, 32, { size: 38, color: C.green, spacing: 3 });
@@ -434,22 +436,38 @@ export class Relay {
     // Blind/echo miss: what was wanted against what he sent, element by element.
     if (this.reveal) {
       const { want, got } = this.reveal;
-      const rows = [['WANTED', want, C.green], ['YOU SENT', got || '-', C.red]];
-      const py = vy + 132, ph = 46 + rows.length * 58;
+      // Each pattern is sized from its own length so a dah-heavy one can't run
+      // into its neighbour. When a row is too crowded for letter and pattern
+      // side by side, the pattern goes under its letter instead.
+      const units = (ch) => [...(MORSE[ch] || '')].reduce((t, e) => t + (e === '.' ? 1 : 3), 0) + (MORSE[ch] || '').length - 1;
+      const rows = [['WANTED', want, C.green], ['YOU SENT', got || '-', C.red]].map(([label, txt, col]) => {
+        const chars = [...txt].filter((ch) => MORSE[ch] || ch === '-');
+        const slot = Math.min(150, (vw - 32) / Math.max(1, chars.length));
+        const most = Math.max(1, ...chars.map(units));
+        // Side by side, the pattern gets x+36 .. x+slot-16; stacked, the slot less 12 a side.
+        const stacked = (slot - 52) / most < 4;
+        return { label, chars, col, slot, stacked, unit: Math.min(10, (stacked ? slot - 24 : slot - 52) / most), h: stacked ? 78 : 58 };
+      });
+      const py = vy + 132, ph = 46 + rows.reduce((t, r) => t + r.h, 0);
       g.panel(vx, py, vw, ph, { color: C.red, fillAlpha: 0.88 });
       g.text('WHAT WENT WRONG', vx + 16, py + 22, { size: 20, color: C.red, spacing: 3 });
       g.text(this.state === 'review' ? 'H: HEAR BOTH' : 'KEY TO TRY AGAIN', vx + vw - 16, py + 22, { size: 13, font: FONT.ui, color: C.grey, align: 'right', glow: 0 });
-      rows.forEach(([label, txt, col], r) => {
-        const y = py + 64 + r * 58;
+      let y = py + 64;
+      rows.forEach(({ label, chars, col, slot, stacked, unit, h }, r) => {
         g.text(label, vx + 16, y - 18, { size: 12, font: FONT.ui, color: C.grey, glow: 0 });
-        const chars = [...txt].filter((ch) => MORSE[ch] || ch === '-');
-        const slot = Math.min(150, (vw - 32) / Math.max(1, chars.length));
         chars.forEach((ch, k) => {
           const x = vx + 16 + k * slot;
           const bad = r === 1 && ch !== want[k];
-          g.text(ch, x + 14, y + 4, { size: 34, color: r === 1 ? (bad ? C.red : C.green) : col, align: 'center' });
-          if (MORSE[ch]) drawPattern(g, MORSE[ch], x + 32 + (slot - 32) / 2, y + 4, Math.min(10, (slot - 40) / 12), r === 1 ? (bad ? C.red : C.green) : C.cyan);
+          const c = r === 1 ? (bad ? C.red : C.green) : col;
+          if (stacked) {
+            g.text(ch, x + slot / 2, y + 6, { size: 30, color: c, align: 'center' });
+            if (MORSE[ch]) drawPattern(g, MORSE[ch], x + slot / 2, y + 36, unit, r === 1 ? c : C.cyan);
+          } else {
+            g.text(ch, x + 14, y + 4, { size: 34, color: c, align: 'center' });
+            if (MORSE[ch]) drawPattern(g, MORSE[ch], x + 36 + (slot - 52) / 2, y + 4, unit, r === 1 ? c : C.cyan);
+          }
         });
+        y += h;
       });
     }
 
@@ -514,19 +532,6 @@ export class Relay {
     void down;
     g.text('PADDLE, Z/X KEYS, OR TAP THE PADS  //  SPACE = STRAIGHT KEY  //  ESC: QUIT', g.W / 2, pd.dit.y - 16, { size: 13, font: FONT.ui, color: C.grey, align: 'center', glow: 0 });
 
-    // TX guard overlay: only when a real paddle is present.
-    const hasPaddle = pad.state === 'ok' || pad.state === 'silent';
-    if (hasPaddle && !pad.paddleAllowed()) {
-      const v = pad.guard.verdict;
-      const col = v === 'locked' ? C.red : C.amber;
-      const bw = Math.min(760, g.W - 40), bh = v === 'unknown' ? 190 : 150;
-      const bx = g.W / 2 - bw / 2, by = g.H * 0.36;
-      g.panel(bx, by, bw, bh, { color: col, fillAlpha: 0.95, glow: 20 + 10 * Math.sin(g.time * 6) });
-      g.text(v === 'locked' ? 'TX GUARD: PADDLE LOCKED' : v === 'safe' ? 'TX GUARD: CHECKING...' : 'RADIO STATE UNKNOWN', g.W / 2, by + 34, { size: 40, color: col, align: 'center', spacing: 3 });
-      g.wrap(pad.guard.reason || '', bw - 40, 18).slice(0, 2).forEach((l, i) => g.text(l, g.W / 2, by + 72 + i * 22, { size: 18, font: FONT.ui, color: C.white, align: 'center' }));
-      g.text(v === 'locked' ? 'Turn CW Break-in OFF in AetherSDR (or close it). Z/X keys still work.' : 'Paddle input is ignored until the Pi can see AetherSDR.', g.W / 2, by + 120, { size: 15, font: FONT.ui, color: col, align: 'center' });
-      if (v === 'unknown' && game.button('confirm', g.W / 2 - 230, by + bh - 52, 460, 40, 'I CONFIRM BREAK-IN IS OFF', { size: 22, color: C.amber })) pad.confirmUnknown();
-    }
-    if (this.ignoredFlash > 0) g.text('PADDLE IGNORED: TX GUARD', g.W / 2, g.H * 0.3, { size: 30, color: C.red, align: 'center', alpha: Math.min(1, this.ignoredFlash) });
+    guardOverlay(game, this.ignoredFlash);
   }
 }

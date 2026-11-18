@@ -24,6 +24,8 @@ import { Ladder } from './scenes/ladder.js';
 import { QuickDraw } from './scenes/quickdraw.js';
 import { Drop } from './scenes/drop.js';
 import { Wall } from './scenes/wall.js';
+import { FreeRun } from './scenes/freerun.js';
+import { FreeKey } from './scenes/freekey.js';
 
 const ART = [
   'bg-title', 'bg-intercept', 'bg-relay', 'bg-rush', 'bg-contact', 'bg-faux', 'bg-shack-hub', 'boss-faux-eye',
@@ -57,7 +59,7 @@ class Game {
     await Promise.all(ART.map(async (n) => {
       this.art[n] = await loadImage(`assets/art/${n}.webp`);
     }));
-    this.scenes = { title: Title, hub: Hub, intercept: Intercept, rush: Rush, relay: Relay, contact: Contact, story: Story, results: Results, settings: Settings, coach: Coach, drill: Drill, pileup: Pileup, headcopy: HeadCopy, ladder: Ladder, quickdraw: QuickDraw, drop: Drop, wall: Wall };
+    this.scenes = { title: Title, hub: Hub, intercept: Intercept, rush: Rush, relay: Relay, contact: Contact, story: Story, results: Results, settings: Settings, coach: Coach, drill: Drill, pileup: Pileup, headcopy: HeadCopy, ladder: Ladder, quickdraw: QuickDraw, drop: Drop, wall: Wall, freerun: FreeRun, freekey: FreeKey };
     this.mouse = { x: -1, y: -1, down: false, clicked: false };
     this.ui = { buttons: [], focus: -1, activate: null, lastHover: null };
     this.toasts = [];
@@ -250,9 +252,9 @@ class Game {
     const ac = this.audio.ctx;
     if (this.awake && ac && ac.state !== 'running') lamp(`SOUND ${ac.state.toUpperCase()}: TAP TO RESUME`, C.red, true);
     const s = this.store.sync;
-    const sc = { ok: C.green, saving: C.cyan, loading: C.cyan, offline: C.amber, error: C.red }[s];
+    const sc = { ok: C.green, saving: C.cyan, loading: C.cyan, retrying: C.amber, offline: C.amber, error: C.red }[s];
     const sync = BUILD.desktop ? 'SAVE' : 'PI SYNC';
-    lamp(s === 'ok' ? `${sync}: OK` : s === 'saving' ? `${sync}: SAVING` : s === 'offline' ? `${sync}: OFFLINE` : s === 'loading' ? sync : 'PROGRESS NOT SAVED', sc, s === 'error');
+    lamp(s === 'ok' ? `${sync}: OK` : s === 'saving' ? `${sync}: SAVING` : s === 'retrying' ? `${sync}: RETRYING` : s === 'offline' ? `${sync}: OFFLINE` : s === 'loading' ? sync : 'NOT SAVED YET: RETRYING', sc, s === 'error');
     if (!g.portrait) g.text('CYBERCW // NIGHT COPY', g.W - 14, y, { size: 14, font: FONT.ui, color: C.greenDim, align: 'right', glow: 0 });
     // Toasts
     let ty = g.H - 60;

@@ -2,6 +2,8 @@
 // while its character plays; type it before it reaches the trace line.
 // With { boss: true } this is the FAUX fight: noise, fading, a second
 // station, spoofed visual hints, and Faux's integrity bar to break.
+// With { free: { letters, charWpm } } it is FREE RUN: his letters at his
+// speed, no trace, no end until he stops, and his stats are left alone.
 
 import { C, FONT } from '../gfx.js';
 import { backdrop, tiles, meter, accColor } from './common.js';
@@ -13,9 +15,10 @@ export class Intercept {
   constructor(game, args) {
     this.game = game;
     this.boss = !!args.boss;
+    this.free = args.free || null;
     const p = game.store.p;
-    this.letters = game.core.koch.slice(0, p.unlocked);
-    this.count = this.boss ? BOSS_COUNT : NORMAL_COUNT;
+    this.letters = this.free ? this.free.letters : game.core.koch.slice(0, p.unlocked);
+    this.count = this.boss ? BOSS_COUNT : this.free ? Infinity : NORMAL_COUNT;
     this.n = 0;
     this.results = [];
     this.score = 0;
@@ -28,10 +31,10 @@ export class Intercept {
     this.state = 'intro';
     this.t = 0;
     this.startedAt = performance.now();
-    this.introQueue = this.letters.filter((c) => !p.introduced[c]);
+    this.introQueue = this.free ? [] : this.letters.filter((c) => !p.introduced[c]);
     this.intro = null;
     const chap = Math.min(p.chapter, CHAPTERS.length - 1);
-    this.noise = this.boss ? 0.22 + chap * 0.03 : (p.chapter >= 2 ? 0.1 : 0);
+    this.noise = this.boss ? 0.22 + chap * 0.03 : (p.chapter >= 2 && !this.free ? 0.1 : 0);
     this.qsb = this.boss ? 0.35 : 0;
     this.qrm = this.boss ? 0.25 + chap * 0.04 : 0;
     this.last = null;
@@ -48,7 +51,7 @@ export class Intercept {
 
   onKey(e, down) {
     if (!down) return false;
-    if (e.key === 'Escape') { this.finish(true); return true; }
+    if (e.key === 'Escape') { this.finish(!this.free || !this.results.length); return true; }
     if (this.state === 'intro' && (e.key === 'Enter' || e.key === ' ')) { this.skipIntro(); return true; }
     if (this.state !== 'play') return false;
     if (e.key === ' ' || e.key === 'Tab') { this.replay(); return true; }
@@ -74,14 +77,15 @@ export class Intercept {
   // ---- flow ----------------------------------------------------------------
 
   play(pk) {
-    const s = this.game.audio.say(pk.ch, { noise: this.noise, qsb: this.qsb, qrm: this.qrm, seed: pk.seed });
+    const s = this.game.audio.say(pk.ch, { noise: this.noise, qsb: this.qsb, qrm: this.qrm, seed: pk.seed, charWpm: this.free?.charWpm || undefined });
     pk.t0 = s.t0;
     pk.end = s.end;
   }
 
   spawn() {
     const game = this.game, p = game.store.p;
-    const ch = game.core.pick(p.unlocked, p.stats, this.last);
+    const pool = this.free && (this.letters.length > 1 ? this.letters.filter((c) => c !== this.last) : this.letters);
+    const ch = pool ? pool[Math.floor(Math.random() * pool.length)] : game.core.pick(p.unlocked, p.stats, this.last);
     this.last = ch;
     const fall = this.boss ? 2.6 : Math.max(1.9, 3.8 - this.combo * 0.08);
     const g = game.gfx;
@@ -115,8 +119,10 @@ export class Intercept {
   resolve(pk, ok, lat, typed) {
     const game = this.game, g = game.gfx;
     pk.done = true;
-    game.store.record(pk.ch, ok, lat);
-    if (!ok && typed) game.store.recordConfusion(pk.ch, typed);
+    if (!this.free) {
+      game.store.record(pk.ch, ok, lat);
+      if (!ok && typed) game.store.recordConfusion(pk.ch, typed);
+    }
     this.results.push({ ch: pk.ch, ok, lat, typed });
     const pos = this.packetPos(pk);
     if (ok) {
@@ -135,7 +141,7 @@ export class Intercept {
       this.reveal = { ch: pk.ch, ok: true, t: 0.55 };
     } else {
       this.combo = 0;
-      this.trace = Math.min(1, this.trace + (typed ? 0.1 : 0.13));
+      if (!this.free) this.trace = Math.min(1, this.trace + (typed ? 0.1 : 0.13));
       game.particles.burst(pos.x, pos.y, C.red, 30, 260);
       game.audio.sfx('bad');
       g.glitch(0.9);
@@ -209,7 +215,7 @@ export class Intercept {
     const ok = r.filter((x) => x.ok).length;
     const lats = r.filter((x) => x.ok && x.lat != null).map((x) => x.lat);
     this.game.go('results', {
-      mission: this.boss ? 'faux' : 'intercept',
+      mission: this.boss ? 'faux' : this.free ? 'freerun' : 'intercept',
       aborted,
       total: r.length,
       correct: ok,
@@ -329,12 +335,13 @@ export class Intercept {
 
     // HUD
     g.shade(0, 0, g.W, 80, 'rgba(5,4,13,0.9)', 'rgba(5,4,13,0)');
-    g.text(this.boss ? 'FAUX // SPOOF STORM' : 'INTERCEPT', 22, 32, { size: 38, color: this.boss ? C.red : C.green, spacing: 3 });
-    g.text(`${Math.min(this.n, this.count)}/${this.count}`, 24, 60, { size: 16, font: FONT.ui, color: C.cyan, glow: 3 });
+    g.text(this.boss ? 'FAUX // SPOOF STORM' : this.free ? 'FREE RUN' : 'INTERCEPT', 22, 32, { size: 38, color: this.boss ? C.red : C.green, spacing: 3 });
+    g.text(this.free ? `${this.n} SENT  //  ${this.free.charWpm || p.settings.charWpm} WPM  //  ESC: DONE` : `${Math.min(this.n, this.count)}/${this.count}`, 24, 60, { size: 16, font: FONT.ui, color: C.cyan, glow: 3 });
     g.text(String(this.score).padStart(6, '0'), g.W - 22, 32, { size: 40, color: C.amber, align: 'right' });
     if (this.combo >= 3) g.text(`COMBO x${this.combo}`, g.W - 22, 62, { size: 20, color: C.cyan, align: 'right' });
     const mw = g.portrait ? g.W - 48 : 300;
-    meter(g, 24, 96, mw, 10, this.trace, this.trace > 0.66 ? C.red : C.amber, 'TRACE');
+    if (!this.free) meter(g, 24, 96, mw, 10, this.trace, this.trace > 0.66 ? C.red : C.amber, 'TRACE');
+    else if (game.button('done', 24, 90, 160, 36, 'DONE [ESC]', { size: 20, color: C.amber })) this.finish(!this.results.length);
     if (this.boss) meter(g, g.W - 24 - mw, 96, mw, 10, this.faux, C.red, 'FAUX RELAY INTEGRITY');
 
     // Answer tiles (touch) and keyboard hint.

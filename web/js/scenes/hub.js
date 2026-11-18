@@ -17,7 +17,7 @@ export function startRun(game) {
 
 const MISSIONS = ['intercept', 'relay', 'rush', 'contact', 'faux', 'drill', 'blind', 'echo', 'pileup', 'headcopy'];
 // Missions past the tenth have letter keys.
-const LETTER_KEYS = { l: 'ladder', k: 'scope', q: 'quickdraw', d: 'drop' };
+const LETTER_KEYS = { l: 'ladder', k: 'scope', q: 'quickdraw', d: 'drop', f: 'freerun', n: 'freekey' };
 
 export function launch(game, mission) {
   if (mission === 'faux') game.go('intercept', { boss: true });
@@ -112,6 +112,8 @@ export class Hub {
       ['scope', 'KEYING SCOPE', 'GRADE YOUR GAPS', 'card-scope'],
       ['quickdraw', 'QUICK DRAW', 'BEAT HIS DRAW', 'card-quickdraw'],
       ['drop', 'DEAD DROP', p.drops?.[localDay()] ? `TODAY ${p.drops[localDay()].pct}%` : "TODAY'S MESSAGE", 'card-deaddrop'],
+      ['freerun', 'FREE RUN', 'YOUR LETTERS + SPEED', 'scene-06-cityscape'],
+      ['freekey', 'FREE KEY', 'KEY ANYTHING', 'scene-02-shack'],
     ];
     const keyOf = (id, i) => (i < 10 ? String((i + 1) % 10) : Object.keys(LETTER_KEYS).find((k) => LETTER_KEYS[k] === id).toUpperCase());
     const cols = 4;
@@ -192,6 +194,6 @@ export class Hub {
       drawPattern(g, MORSE[pk.c] || '', px + pw / 2, py + 122, 18, game.audio.cwPlaying ? C.white : C.cyan, a);
       g.text(sayPattern(pk.c).toUpperCase() + (pk.open ? '' : '  //  NOT UNLOCKED YET'), px + pw / 2, py + 162, { size: 14, font: FONT.ui, color: C.grey, align: 'center', alpha: a, glow: 0 });
     }
-    if (!portrait) g.text('1-9, 0, L K Q D MISSIONS  //  R RUN  //  C COACH  //  W QSL WALL  //  S SETUP', L.x, g.H - 52, { size: 14, font: FONT.ui, color: C.grey, glow: 0 });
+    if (!portrait) g.text('1-9, 0, L K Q D F N MISSIONS  //  R RUN  //  C COACH  //  W QSL WALL  //  S SETUP', L.x, g.H - 52, { size: 14, font: FONT.ui, color: C.grey, glow: 0 });
   }
 }

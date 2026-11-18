@@ -24,6 +24,8 @@ export const DEFAULTS = {
   sendMix: {},           // 'A>N': weight (asked for A, sent N); fades as A is sent right
   rushLen: 2,            // WORD RUSH word length ladder
   rushRecent: [],        // WORD RUSH words from recent runs, oldest first
+  free: { letters: [], mode: 'listen', charWpm: 0 }, // FREE RUN setup; empty letters = all unlocked, 0 wpm = his own
+  freeKeys: [],          // FREE KEY: last 10 pieces { at, text }
   ladder: { rung: 0, clean: 0, poor: 0 }, // QSO LADDER rung and its streaks
   drops: {},             // DEAD DROP: { 'YYYY-MM-DD': { pct, score, plays } }
   settings: {
@@ -44,8 +46,11 @@ function merge(base, over) {
 }
 
 // Deep equality that ignores key order (the server returns keys sorted).
+// Numbers may come back a last digit off if the server's JSON parser rounds
+// (the desktop build's may); that is the same value, not a failed save.
 function same(a, b) {
   if (a === b) return true;
+  if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(a), Math.abs(b));
   if (typeof a !== 'object' || typeof b !== 'object' || !a || !b || Array.isArray(a) !== Array.isArray(b)) return false;
   const ka = Object.keys(a), kb = Object.keys(b);
   return ka.length === kb.length && ka.every((k) => same(a[k], b[k]));
@@ -65,7 +70,8 @@ export class Store {
   constructor() {
     this.p = structuredClone(DEFAULTS);
     this.rev = 0;
-    this.sync = 'loading'; // ok | saving | offline | error
+    this.sync = 'loading'; // ok | saving | retrying | offline | error
+    this.failSince = 0;    // first failed save in the current run of failures
     this.syncMsg = '';
     this.saveTimer = null;
   }
@@ -138,11 +144,16 @@ export class Store {
       this.cache();
       this.sync = 'ok';
       this.syncMsg = '';
+      this.failSince = 0;
     } catch (e) {
-      this.sync = 'error';
-      this.syncMsg = `PROGRESS NOT SAVED to ${BUILD.desktop ? 'disk' : 'the Pi'} (${e.message}). Kept in this browser; retrying.`;
+      // A blip (Pi busy, Wi-Fi waking up) retries quietly. It only turns red
+      // when saves have kept failing for a minute; the browser copy is kept either way.
+      this.failSince ||= Date.now();
+      const long = Date.now() - this.failSince > 60000;
+      this.sync = long ? 'error' : 'retrying';
+      this.syncMsg = `NOT SAVED TO ${BUILD.desktop ? 'DISK' : 'THE PI'} YET (${e.message}). Your progress is safe in this browser and will keep retrying.`;
       clearTimeout(this.saveTimer);
-      this.saveTimer = setTimeout(() => this.push(), 15000);
+      this.saveTimer = setTimeout(() => this.push(), long ? 15000 : 4000);
     }
   }
 
@@ -165,8 +176,11 @@ export class Store {
         q.shift();
         localStorage.setItem(QUEUE, JSON.stringify(q));
       } catch {
-        this.sync = 'error';
-        this.syncMsg = `${q.length} session(s) waiting to be saved`;
+        // Queued in this browser; try again shortly.
+        if (this.sync === 'ok') this.sync = 'retrying';
+        this.syncMsg = `${q.length} mission log${q.length === 1 ? '' : 's'} waiting to be saved`;
+        clearTimeout(this.sessionTimer);
+        this.sessionTimer = setTimeout(() => this.flushSessions().then(() => { if (this.sync === 'retrying' && !this.failSince) this.sync = 'ok'; }), 5000);
         return;
       }
     }

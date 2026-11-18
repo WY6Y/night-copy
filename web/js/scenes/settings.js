@@ -4,6 +4,7 @@ import { backdrop } from './common.js';
 const ROWS = [
   ['call', 'YOUR CALL', '', 0, 0, 0, 'Sent in RELAY and CONTACT. Enter to edit, type it, Enter to save.'],
   ['charWpm', 'CHARACTER SPEED', 'WPM', 15, 30, 1, 'How fast each letter sounds. Keep it 18 to 22 so you learn sounds, not counts.'],
+  ['effWpm', 'EFFECTIVE SPEED', 'WPM', 5, 30, 1, 'Spacing between letters and words. Missions still nudge it up or down from here.'],
   ['tone', 'TONE', 'HZ', 400, 900, 25, 'Pitch of the CW you copy and your sidetone.'],
   ['keyerWpm', 'KEYER SPEED', 'WPM', 8, 30, 1, 'Speed of your paddle in RELAY and CONTACT.'],
   ['modeB', 'IAMBIC MODE', '', 0, 1, 1, 'B finishes a squeeze with one more element; A stops.'],
@@ -58,7 +59,13 @@ export class Settings {
   change(i, dir) {
     const [key, , , min, max, step] = ROWS[i];
     if (key === 'call') { this.startEdit(); return; }
-    const s = this.game.store.p.settings;
+    const p = this.game.store.p, s = p.settings;
+    if (key === 'effWpm') {
+      p.effWpm = Math.max(min, Math.min(s.charWpm, p.effWpm + dir * step));
+      this.game.audio.say('K M', { effWpm: p.effWpm });
+      this.game.store.save();
+      return;
+    }
     if (typeof s[key] === 'boolean') s[key] = !s[key];
     else s[key] = Math.round(Math.max(min, Math.min(max, s[key] + dir * step)) * 100) / 100;
     if (key === 'charWpm' && this.game.store.p.effWpm > s.charWpm) this.game.store.p.effWpm = s.charWpm;
@@ -92,30 +99,30 @@ export class Settings {
     const w = Math.min(900, g.W - 40), x = (g.W - w) / 2;
     let y = 90;
     ROWS.forEach(([key, label, unit], i) => {
-      const v = s[key];
+      const v = key === 'effWpm' ? game.store.p.effWpm : s[key];
       const shown = key === 'call' ? (this.editing !== null ? `${this.editing}_` : v || 'NOT SET') : typeof v === 'boolean' ? (key === 'modeB' ? (v ? 'B' : 'A') : v ? 'ON' : 'OFF') : unit === '%' ? `${Math.round(v * 100)}%` : `${v} ${unit}`;
       const act = i === this.sel;
-      g.panel(x, y, w, 40, { color: act ? C.amber : C.greenDim, fillAlpha: act ? 0.9 : 0.7, glow: act ? 12 : 3 });
+      g.panel(x, y, w, 38, { color: act ? C.amber : C.greenDim, fillAlpha: act ? 0.9 : 0.7, glow: act ? 12 : 3 });
       g.text(label, x + 16, y + 20, { size: 24, color: act ? C.amber : C.green });
       if (key === 'call') {
         g.text(shown, x + w - 130, y + 20, { size: 26, color: this.editing !== null ? C.amber : C.white, align: 'center' });
         if (this.editing !== null) {
           if (game.button('call-ok', x + w - 250, y + 4, 60, 32, 'OK', { size: 22 })) this.finishEdit();
         } else if (game.button('call-edit', x + w - 250, y + 4, 70, 32, 'EDIT', { size: 22 })) { this.sel = i; this.startEdit(); }
-        y += 44;
+        y += 42;
         return;
       }
       if (game.button(`m-${key}`, x + w - 250, y + 4, 40, 32, '<', { size: 24 })) { this.sel = i; this.change(i, -1); }
       g.text(shown, x + w - 130, y + 20, { size: 26, color: C.white, align: 'center' });
       if (game.button(`p-${key}`, x + w - 50, y + 4, 40, 32, '>', { size: 24 })) { this.sel = i; this.change(i, 1); }
-      y += 44;
+      y += 42;
     });
     const help = this.askCall ? 'Type your callsign (or your name) and press Enter. You will send it in RELAY and CONTACT.' : ROWS[this.sel][6];
     if (help) g.text(help, g.W / 2, y + 16, { size: 16, font: FONT.ui, color: C.cyan, align: 'center' });
-    y += 40;
+    y += 34;
     const p = game.paddle;
     g.text(`${p.statusText()}${p.input ? `  //  ${p.input.name}` : ''}`, g.W / 2, y, { size: 16, font: FONT.ui, color: p.state === 'ok' ? C.green : C.amber, align: 'center' });
-    y += 22;
+    y += 16;
     if (game.button('midi', g.W / 2 - 300, y, 290, 40, 'CONNECT PADDLE', { size: 22, color: C.green })) { p.connect(); }
     if (game.button('fs', g.W / 2 + 10, y, 290, 40, 'FULLSCREEN', { size: 22, color: C.cyan })) game.fullscreen();
     if (!this.askCall && game.button('back', 24, g.H - 84, 200, 44, 'BACK', { size: 26, color: C.amber })) this.leave();

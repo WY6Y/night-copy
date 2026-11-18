@@ -113,3 +113,21 @@ export function drawPattern(g, pattern, cx, cy, unit = 18, color = C.cyan, alpha
   }
   c.restore();
 }
+
+/** TX guard overlay for keying scenes: only when a real paddle is present. */
+export function guardOverlay(game, ignoredFlash) {
+  const g = game.gfx, pad = game.paddle;
+  const hasPaddle = pad.state === 'ok' || pad.state === 'silent';
+  if (hasPaddle && !pad.paddleAllowed()) {
+    const v = pad.guard.verdict;
+    const col = v === 'locked' ? C.red : C.amber;
+    const bw = Math.min(760, g.W - 40), bh = v === 'unknown' ? 190 : 150;
+    const bx = g.W / 2 - bw / 2, by = g.H * 0.36;
+    g.panel(bx, by, bw, bh, { color: col, fillAlpha: 0.95, glow: 20 + 10 * Math.sin(g.time * 6) });
+    g.text(v === 'locked' ? 'TX GUARD: PADDLE LOCKED' : v === 'safe' ? 'TX GUARD: CHECKING...' : 'RADIO STATE UNKNOWN', g.W / 2, by + 34, { size: 40, color: col, align: 'center', spacing: 3 });
+    g.wrap(pad.guard.reason || '', bw - 40, 18).slice(0, 2).forEach((l, i) => g.text(l, g.W / 2, by + 72 + i * 22, { size: 18, font: FONT.ui, color: C.white, align: 'center' }));
+    g.text(v === 'locked' ? 'Turn CW Break-in OFF in AetherSDR (or close it). Z/X keys still work.' : 'Paddle input is ignored until the Pi can see AetherSDR.', g.W / 2, by + 120, { size: 15, font: FONT.ui, color: col, align: 'center' });
+    if (v === 'unknown' && game.button('confirm', g.W / 2 - 230, by + bh - 52, 460, 40, 'I CONFIRM BREAK-IN IS OFF', { size: 22, color: C.amber })) pad.confirmUnknown();
+  }
+  if (ignoredFlash > 0) g.text('PADDLE IGNORED: TX GUARD', g.W / 2, g.H * 0.3, { size: 30, color: C.red, align: 'center', alpha: Math.min(1, ignoredFlash) });
+}

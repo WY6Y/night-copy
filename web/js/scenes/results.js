@@ -93,10 +93,12 @@ export class Results {
       p.qsl = [...(p.qsl || []), r.qsl].slice(-200);
       this.notes.push([`QSL CARD #${p.qsl.length} ADDED TO THE LOG`, C.cyan]);
     }
-    if (r.total > 0) {
+    if (r.total > 0 || r.keyed) {
+      // spacing: share of clean letter/word gaps (KEYING SCOPE grades rhythm instead).
+      const spacing = r.timing != null && r.mission !== 'scope' ? Math.round(r.timing * 1000) / 1000 : undefined;
       store.logSession({
         mission: r.mission, seconds: Math.round(r.seconds || 0), total: r.total, correct: r.correct,
-        detail: { score: r.score || 0, avgLat: Math.round(r.avgLat || 0), unlocked: p.unlocked, eff: p.effWpm, aborted: !!r.aborted },
+        detail: { score: r.score || 0, avgLat: Math.round(r.avgLat || 0), unlocked: p.unlocked, eff: p.effWpm, aborted: !!r.aborted, spacing, keyed: r.keyed },
       });
     }
     store.save(true);
@@ -149,6 +151,7 @@ export class Results {
     g.text(h, cx, 92, { size: g.portrait ? 64 : 86, color: hc, align: 'center', glow: 30, spacing: 6 });
     const k = Math.min(1, this.t / 1.2);
     const lines = [];
+    if (r.keyed) lines.push(['LETTERS KEYED', String(Math.round(r.keyed * k)), C.green]);
     if (r.total) lines.push(['COPIED', `${Math.round(r.correct * k)} / ${r.total}`, C.green]);
     if (r.total) lines.push(['ACCURACY', `${Math.round(this.acc * 100 * k)}%`, this.acc >= 0.9 ? C.green : this.acc >= 0.7 ? C.amber : C.red]);
     if (r.avgLat) lines.push(['AVG RESPONSE', `${Math.round(r.avgLat)} MS`, C.cyan]);
@@ -156,21 +159,27 @@ export class Results {
     if (r.maxCombo) lines.push(['BEST COMBO', `x${r.maxCombo}`, C.cyan]);
     if (r.timing) lines.push(['CLEAN SPACING', `${Math.round(r.timing * 100)}%`, r.timing >= 0.8 ? C.green : C.amber]);
     const pw = Math.min(560, g.W - 40);
+    // Fit everything above the buttons: shrink the chips, then the stat rows.
+    const by = {};
+    for (const x of r.perChar || []) { (by[x.ch] ||= { n: 0, ok: 0 }); by[x.ch].n++; if (x.ok) by[x.ch].ok++; }
+    const chars = Object.keys(by).sort((a, b) => game.core.koch.indexOf(a) - game.core.koch.indexOf(b));
+    const gap = 6, room = g.H - 176 - 160; // buttons sit at most at H-160, clear of the status bar
+    const chipH = (s) => (chars.length ? Math.ceil(chars.length / Math.max(1, Math.floor((g.W - 40) / (s + gap)))) * (s + gap + 14) + 20 : 0);
+    const fixedH = 10 + this.notes.length * 36;
+    let s = 46;
+    while (s > 28 && lines.length * 40 + 24 + fixedH + chipH(s) > room) s -= 2;
+    const pitch = lines.length * 40 + 24 + fixedH + chipH(s) > room ? 32 : 40;
     let y = 160;
-    g.panel(cx - pw / 2, y, pw, lines.length * 40 + 24, { color: C.greenDim, fillAlpha: 0.85 });
+    g.panel(cx - pw / 2, y, pw, lines.length * pitch + 24, { color: C.greenDim, fillAlpha: 0.85 });
     y += 32;
     for (const [l, v, col] of lines) {
       g.text(l, cx - pw / 2 + 24, y, { size: 18, font: FONT.ui, color: C.grey, glow: 0 });
-      g.text(v, cx + pw / 2 - 24, y, { size: 32, color: col, align: 'right' });
-      y += 40;
+      g.text(v, cx + pw / 2 - 24, y, { size: pitch === 40 ? 32 : 28, color: col, align: 'right' });
+      y += pitch;
     }
     y += 10;
     // Per-character chips.
-    if (r.perChar?.length) {
-      const by = {};
-      for (const x of r.perChar) { (by[x.ch] ||= { n: 0, ok: 0 }); by[x.ch].n++; if (x.ok) by[x.ch].ok++; }
-      const chars = Object.keys(by).sort((a, b) => game.core.koch.indexOf(a) - game.core.koch.indexOf(b));
-      const s = 46, gap = 6;
+    if (chars.length) {
       const per = Math.max(1, Math.floor((g.W - 40) / (s + gap)));
       const rows = Math.ceil(chars.length / per);
       chars.forEach((ch, i) => {
@@ -180,7 +189,7 @@ export class Results {
         const f = by[ch].ok / by[ch].n;
         const col = f >= 0.9 ? C.green : f >= 0.6 ? C.amber : C.red;
         g.panel(x, yy, s, s, { color: col, fillAlpha: 0.8, glow: 6 });
-        g.text(ch, x + s / 2, yy + s / 2, { size: 30, color: col, align: 'center' });
+        g.text(ch, x + s / 2, yy + s / 2, { size: s * 0.65, color: col, align: 'center' });
         g.text(`${by[ch].ok}/${by[ch].n}`, x + s / 2, yy + s + 9, { size: 11, font: FONT.ui, color: C.grey, align: 'center', glow: 0 });
       });
       y += rows * (s + gap + 14) + 20;
@@ -194,7 +203,7 @@ export class Results {
     const more = run && run.i + 1 < run.queue.length;
     const label = this.chapterCleared != null ? 'CONTINUE STORY' : more ? `NEXT: ${run.queue[run.i + 1].toUpperCase()}` : 'BACK TO THE SHACK';
     const bw = Math.min(420, g.W - 40);
-    const byy = Math.min(g.H - 120, Math.max(y + 16, g.H - 190));
+    const byy = Math.min(g.H - 160, Math.max(y + 16, g.H - 190));
     if (this.t > 0.8 && game.button('next', cx - bw / 2, byy, bw, 58, label, { size: 32, color: C.amber })) this.next();
     if (this.t > 0.8 && game.button('again', cx - bw / 2, byy + 66, bw, 40, 'RUN THIS MISSION AGAIN', { size: 20, color: C.cyan })) {
       launch(game, r.mission);
