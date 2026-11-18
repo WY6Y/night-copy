@@ -23,6 +23,7 @@ export const DEFAULTS = {
   confusions: {},        // 'K>R': weight (heard K, typed R); fades as K is copied right
   sendMix: {},           // 'A>N': weight (asked for A, sent N); fades as A is sent right
   rushLen: 2,            // WORD RUSH word length ladder
+  rushRecent: [],        // WORD RUSH words from recent runs, oldest first
   ladder: { rung: 0, clean: 0, poor: 0 }, // QSO LADDER rung and its streaks
   drops: {},             // DEAD DROP: { 'YYYY-MM-DD': { pct, score, plays } }
   settings: {

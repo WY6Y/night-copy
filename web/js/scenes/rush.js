@@ -15,6 +15,7 @@ const UP_AFTER = 3;   // clean copies in a row to climb a letter
 const DOWN_AFTER = 2; // misses in a row to drop one
 const OD_BOOST = 3;   // overdrive words: effective wpm above his own
 const OD_CHANCE = 0.3;
+const RECENT = 60;    // words remembered across runs so they don't come right back
 
 export class Rush {
   constructor(game) {
@@ -26,6 +27,7 @@ export class Rush {
     this.streak = 0;
     this.misses = 0;
     this.build = []; // prefixes queued after a miss
+    this.used = new Set(); // words played this run
     this.od = { n: 0, ok: 0 };
     this.i = -1;
     this.typed = '';
@@ -52,11 +54,17 @@ export class Rush {
 
   exit() { this.game.wantText(false); }
 
-  /** A real word at the current length when there are enough, else letters. */
+  /** A real word at the current length, else letters. No word plays twice in
+   *  a run, and words from his last few runs wait until the fresh ones are gone. */
   pick() {
-    const fit = this.pool.filter((w) => w.replace(/ /g, '').length === this.len && w !== this.last);
-    const w = fit.length >= 3 && Math.random() < 0.75 ? rand(fit) : this.group(this.len);
-    this.last = w;
+    const fit = this.pool.filter((w) => w.length === this.len && !this.used.has(w));
+    const recent = this.game.store.p.rushRecent || [];
+    const fresh = fit.filter((w) => !recent.includes(w));
+    // Out of fresh words: take the one heard longest ago.
+    const stale = fit.sort((a, b) => recent.indexOf(a) - recent.indexOf(b))[0];
+    const word = fresh.length ? rand(fresh) : stale;
+    const w = word && Math.random() < 0.75 ? word : this.group(this.len);
+    this.used.add(w);
     return w;
   }
 
@@ -146,6 +154,8 @@ export class Rush {
     this.finished = true;
     const r = this.results;
     if (!aborted || r.length >= 5) this.game.store.p.rushLen = this.len;
+    const p = this.game.store.p;
+    p.rushRecent = [...(p.rushRecent || []).filter((w) => !this.used.has(w)), ...this.used].slice(-RECENT);
     this.game.go('results', {
       mission: 'rush', aborted, total: r.length, correct: r.filter((x) => x.ok).length,
       score: this.score, rushLen: this.len, overdrive: this.od.n ? this.od : null, seconds: (performance.now() - this.startedAt) / 1000,
