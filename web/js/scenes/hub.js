@@ -79,12 +79,17 @@ export class Hub {
     // Header
     g.shade(0, 0, g.W, 110, 'rgba(5,4,13,0.95)', 'rgba(5,4,13,0)');
     g.text('NIGHT COPY', 24, 36, { size: 52, color: C.green, spacing: 5 });
-    g.text(done ? 'ALL CHAPTERS CLEARED // THE CITY IS LISTENING' : `CHAPTER ${ci + 1} // ${ch.title}`, 26, 74, { size: 18, font: FONT.ui, color: C.cyan, spacing: 2, glow: 5 });
+    g.text(done ? (g.portrait ? 'ALL CHAPTERS CLEARED' : 'ALL CHAPTERS CLEARED // THE CITY IS LISTENING') : `CHAPTER ${ci + 1} // ${ch.title}`, 26, 74, { size: 18, font: FONT.ui, color: C.cyan, spacing: 2, glow: 5 });
     // Narrower on phones so they clear the title.
     const hb = g.portrait ? 110 : 130, hs = hb + 8;
     if (game.button('settings', g.W - 20 - hb, 18, hb, 40, 'SETUP', { size: 22, color: C.cyan })) game.go('settings');
     if (game.button('coach', g.W - 20 - hb - hs, 18, hb, 40, 'COACH', { size: 22, color: C.amber })) game.go('coach');
     if (game.button('wall', g.W - 20 - hb - hs * 2, 18, hb, 40, g.portrait ? 'QSLS' : 'QSL WALL', { size: 22, color: C.cyan })) game.go('wall');
+    // Campaign beaten: replay the fall of Faux (P221).
+    if (done) {
+      const ex = g.portrait ? g.W - 20 - hb : g.W - 20 - hb - hs * 3, ey = g.portrait ? 64 : 18;
+      if (game.button('finale', ex, ey, hb, g.portrait ? 32 : 40, 'THE END', { size: g.portrait ? 18 : 22, color: C.red })) game.go('finale');
+    }
 
     const portrait = g.portrait;
     const L = portrait ? { x: 20, w: g.W - 40 } : { x: 24, w: 744 };

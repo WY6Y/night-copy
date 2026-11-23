@@ -130,7 +130,7 @@ export class Results {
       const ci = this.chapterCleared;
       game.go('story', {
         chapter: ci, part: 'outro',
-        then: () => (CHAPTERS[ci + 1] ? game.go('story', { chapter: ci + 1, part: 'intro', then: cont }) : cont()),
+        then: () => (CHAPTERS[ci + 1] ? game.go('story', { chapter: ci + 1, part: 'intro', then: cont }) : game.go('finale', { then: () => game.go('hub') })),
       });
     } else cont();
   }

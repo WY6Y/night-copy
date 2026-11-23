@@ -26,6 +26,7 @@ import { Drop } from './scenes/drop.js';
 import { Wall } from './scenes/wall.js';
 import { FreeRun } from './scenes/freerun.js';
 import { FreeKey } from './scenes/freekey.js';
+import { Finale } from './scenes/finale.js';
 
 const ART = [
   'bg-title', 'bg-intercept', 'bg-relay', 'bg-rush', 'bg-contact', 'bg-faux', 'bg-shack-hub', 'boss-faux-eye',
@@ -35,6 +36,7 @@ const ART = [
   'char-dame', 'char-operator', 'char-villain-faux', 'prop-runner-side', 'scene-14-fragment-crt',
   'scene-03-cabinet', 'scene-11-nightop-watcher',
   'card-qso', 'card-scope', 'card-quickdraw', 'card-deaddrop', 'bg-scope', 'qsl-blank', 'overdrive-burst',
+  'fin-sky', 'fin-tower', 'fin-tower-stub', 'fin-eye-cracked', 'fin-shard', 'fin-faux-fall', 'fin-dawn', 'fin-stinger', 'fin-faux-eye',
 ];
 
 class Game {
@@ -59,7 +61,7 @@ class Game {
     await Promise.all(ART.map(async (n) => {
       this.art[n] = await loadImage(`assets/art/${n}.webp`);
     }));
-    this.scenes = { title: Title, hub: Hub, intercept: Intercept, rush: Rush, relay: Relay, contact: Contact, story: Story, results: Results, settings: Settings, coach: Coach, drill: Drill, pileup: Pileup, headcopy: HeadCopy, ladder: Ladder, quickdraw: QuickDraw, drop: Drop, wall: Wall, freerun: FreeRun, freekey: FreeKey };
+    this.scenes = { title: Title, hub: Hub, intercept: Intercept, rush: Rush, relay: Relay, contact: Contact, story: Story, results: Results, settings: Settings, coach: Coach, drill: Drill, pileup: Pileup, headcopy: HeadCopy, ladder: Ladder, quickdraw: QuickDraw, drop: Drop, wall: Wall, freerun: FreeRun, freekey: FreeKey, finale: Finale };
     this.mouse = { x: -1, y: -1, down: false, clicked: false };
     this.ui = { buttons: [], focus: -1, activate: null, lastHover: null };
     this.toasts = [];

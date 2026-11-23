@@ -1,5 +1,6 @@
 import { C, FONT } from '../gfx.js';
 import { backdrop } from './common.js';
+import { CHAPTERS } from '../content.js';
 
 export class Title {
   constructor(game) {
@@ -34,7 +35,11 @@ export class Title {
       if (this.leaving <= 0) {
         const p = this.game.store.p;
         // A desktop player has no call yet: ask for it before the story.
-        if (!p.settings.call) this.game.go('settings', { askCall: true });
+        // cw.wy6y.net/#the-end: straight to the finale, only once the campaign is beaten (P221).
+        if (location.hash === '#the-end' && p.chapter >= CHAPTERS.length) {
+          history.replaceState(null, '', location.pathname);
+          this.game.go('finale');
+        } else if (!p.settings.call) this.game.go('settings', { askCall: true });
         else if (!p.storySeen['0-intro']) this.game.go('story', { chapter: 0, part: 'intro', then: 'hub' });
         else this.game.go('hub');
       }

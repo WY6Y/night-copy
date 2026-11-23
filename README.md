@@ -6,7 +6,8 @@ arcade missions: INTERCEPT, RELAY, WORD RUSH, CONTACT, and the FAUX boss at
 the end of each chapter. Side missions drill the hard parts: QSO LADDER (copy a real
 QSO, a field at a time), KEYING SCOPE (your fist against the ideal trace), QUICK DRAW
 (your slowest letters, against the clock), and DEAD DROP (one message a day, same for
-everyone). Clean QSOs earn cards for your QSL WALL.
+everyone). Clean QSOs earn cards for your QSL WALL. Beat the last chapter and the
+campaign ends with the fall of Dr. Faux... for now.
 
 ![Title](docs/screenshots/title.webp)
 
